@@ -42,16 +42,33 @@ https://cdn.jsdelivr.net/gh/luoruihuan/ron-proxy-rules@main/shadowrocket.conf
 | `Fast` | url-test | 全部节点里选延迟最低 |
 | `AI-USA` | url-test | 只筛美国节点，AI 服务专用 |
 | `香港智能` | url-test | 只筛香港节点 |
-| `PROXY` | select | 手动选择，默认 Fast |
+| `PROXY` | select | 手动干预入口，不被规则引用 |
 
-## 自定义线路（与桌面不同，仅手机端）
+## 设计目标
+
+四条核心诉求，规则严格对应：
+
+| 诉求 | 实现方式 |
+|---|---|
+| AI 走美国 | `ai-proxy-rules/global.list` → `AI-USA` |
+| 国内走直连 | `China_Domain` + `icloud` + `apple` + `GEOIP,CN` → `DIRECT` |
+| 其他走最快 | `FINAL,Fast`（`gfw` / `greatfire` / `tld-not-cn` / `Telegram` 也指向 `Fast`） |
+| 早报走香港 | `zaobao.com` / `zaobao.com.sg` → `香港智能` |
+
+已用 33 个代表性域名做过完整匹配链模拟，全部符合预期。
+
+### 两个有意为之的决定
+
+**不挂全量 Google 规则集。** AI 规则集已完整收录 Gemini、AI Studio、NotebookLM、Jules、Labs 等 Google AI 域名，再挂 698 条的 `Google.list` 只会把 Gmail、Drive、Maps、blogspot 一并绕去美国，与「AI 走美国」的诉求不符。桌面配置里的 `GEOSITE,google → AI-USA` 按同一标准看也是过宽的。
+
+**`PROXY` 组不被任何规则引用。** 它是 `select` 类型，留作需要临时手动指定线路时的入口。所有自动分流都直接指向 `Fast` / `AI-USA` / `香港智能` / `DIRECT`，语义明确。
+
+## 自定义线路（桌面端没有，如需一致请同步）
 
 | 域名 | 策略 | 原因 |
 |---|---|---|
-| `deepseek.com` | DIRECT | 上游 AI 规则集只收录海外 AI，不含 DeepSeek；桌面走兜底代理 |
-| `youtube.com` 等 9 个域名 | Fast | 走最快线路而非锁美国；桌面走 `gfw` → PROXY |
-
-这两组规则桌面端没有，如需一致请在 `config.yaml` 里同步添加。
+| `deepseek.com` | DIRECT | 上游 AI 规则集只收录海外 AI，不含 DeepSeek |
+| `youtube.com` 等 9 个域名 | Fast | 显式置于 `gfw` 规则集之前，避免被其覆盖 |
 
 ## 与桌面配置的已知差异
 
@@ -62,8 +79,9 @@ https://cdn.jsdelivr.net/gh/luoruihuan/ron-proxy-rules@main/shadowrocket.conf
 | 广告拦截 | Loyalsoldier `reject` (6.5MB) | blackmatrix7 `Advertising` (27KB) | 手机不适合拉 6.5MB |
 | 国内域名直连 | Loyalsoldier `direct` (3MB) | blackmatrix7 `China_Domain` (51KB) | 同上；覆盖面有细微出入，少数长尾国内域名可能落到代理 |
 | 国内 IP | `cncidr` 规则集 + `GEOIP,CN` | 仅 `GEOIP,CN` | 精简 |
-| 需代理域名 | 含 `proxy` 规则集 (776KB) | 省略 | 兜底本来就是 PROXY，删掉不改变结果 |
-| Google | `GEOSITE,google` | blackmatrix7 `Google.list` | Shadowrocket 不支持 GEOSITE |
+| 需代理域名 | 含 `proxy` 规则集 (776KB) | 省略 | 兜底本来就是代理，删掉不改变结果 |
+| Google 全量 | `GEOSITE,google` → AI-USA | 无此规则 | 与「AI 走美国」诉求不符，见上方说明 |
+| 兜底策略 | `MATCH,PROXY`（select 组） | `FINAL,Fast`（直接指向最快） | 语义更贴合「其他走最快」 |
 | 进程分流 | `applications` (PROCESS-NAME) | 无 | iOS 没有进程级分流，无解 |
 | DNS | 公司内网 DNS | 公共 DoH | 内网 DNS 在外网不通 |
 
