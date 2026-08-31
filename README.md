@@ -44,6 +44,15 @@ https://cdn.jsdelivr.net/gh/luoruihuan/ron-proxy-rules@main/shadowrocket.conf
 | `香港智能` | url-test | 只筛香港节点 |
 | `PROXY` | select | 手动选择，默认 Fast |
 
+## 自定义线路（与桌面不同，仅手机端）
+
+| 域名 | 策略 | 原因 |
+|---|---|---|
+| `deepseek.com` | DIRECT | 上游 AI 规则集只收录海外 AI，不含 DeepSeek；桌面走兜底代理 |
+| `youtube.com` 等 9 个域名 | Fast | 走最快线路而非锁美国；桌面走 `gfw` → PROXY |
+
+这两组规则桌面端没有，如需一致请在 `config.yaml` 里同步添加。
+
 ## 与桌面配置的已知差异
 
 桌面是 `~/.config/clash.meta/config.yaml`（ClashX Meta，本地文件模式）。两端规则同源但不逐条相同：
