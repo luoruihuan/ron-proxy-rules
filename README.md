@@ -88,6 +88,15 @@ https://cdn.jsdelivr.net/gh/luoruihuan/ron-proxy-rules@main/shadowrocket.conf
 | 需代理域名 | 含 `proxy` 规则集 (776KB) | 省略 | 兜底本来就是代理，删掉不改变结果 |
 | Google 全量 | `GEOSITE,google` → AI-USA | 无此规则 | 与「AI 走美国」诉求不符，见上方说明 |
 | 兜底策略 | `MATCH,PROXY`（select 组） | `FINAL,Fast`（直接指向最快） | 语义更贴合「其他走最快」 |
+| `Fast` 节点范围 | 同为港/日/新/台/韩 16 个 | 同左 | 已同步，两端一致 |
+
+### 关于机场自带的策略组
+
+机场的 Clash YAML 订阅里带 4 个自己的策略组：`Ghelper`、`🌐 全球智能`（25 节点）、`🇭🇰 香港智能`（8 节点）、`AI专用`（19 节点）。**两端都没有使用它们**，原因：
+
+- **手机端拿不到。** base64 订阅（`/subs/shadowrocket/`）只含 34 行纯节点 URI，不含任何策略组——这个结构承载不了 mihomo 的 `proxy-groups`。
+- **桌面端也拿不到。** `proxy-providers` 只导入订阅的 `proxies` 段，`proxy-groups` 不会被引入。所以两端的 `filter` / `policy-regex-filter` 都不存在误收机场策略组的风险（负向断言 `(?!(智能|专用))` 属于冗余防护，保留以防订阅格式变化）。
+- **即便能用也不合适。** `AI专用` 含英国、法国、日本、新加坡，19 个里只有 11 个美国节点，与「AI 走美国」的诉求不符；`全球智能` 含美国节点，正是会导致刷 X 卡顿的那类配置；三个组的 `interval` 都是 7200s，节点质量波动要等最多两小时才切换（我们是 300s）。
 | 进程分流 | `applications` (PROCESS-NAME) | 无 | iOS 没有进程级分流，无解 |
 | DNS | 公司内网 DNS | 公共 DoH | 内网 DNS 在外网不通 |
 
