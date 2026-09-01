@@ -39,7 +39,7 @@ https://cdn.jsdelivr.net/gh/luoruihuan/ron-proxy-rules@main/shadowrocket.conf
 
 | 组名 | 类型 | 说明 |
 |---|---|---|
-| `Fast` | url-test | 全部节点里选延迟最低 |
+| `Fast` | url-test | 近距离地区（港/日/新/台/韩）里选延迟最低 |
 | `AI-USA` | url-test | 只筛美国节点，AI 服务专用 |
 | `香港智能` | url-test | 只筛香港节点 |
 | `PROXY` | select | 手动干预入口，不被规则引用 |
@@ -62,6 +62,12 @@ https://cdn.jsdelivr.net/gh/luoruihuan/ron-proxy-rules@main/shadowrocket.conf
 **不挂全量 Google 规则集。** AI 规则集已完整收录 Gemini、AI Studio、NotebookLM、Jules、Labs 等 Google AI 域名，再挂 698 条的 `Google.list` 只会把 Gmail、Drive、Maps、blogspot 一并绕去美国，与「AI 走美国」的诉求不符。桌面配置里的 `GEOSITE,google → AI-USA` 按同一标准看也是过宽的。
 
 **`PROXY` 组不被任何规则引用。** 它是 `select` 类型，留作需要临时手动指定线路时的入口。所有自动分流都直接指向 `Fast` / `AI-USA` / `香港智能` / `DIRECT`，语义明确。
+
+**`Fast` 只让近距离地区参与竞速。** 原先用 `.*` 匹配全部 41 个节点，其中含 12 个美国节点。`url-test` 只按延迟排序，而延迟低不代表带宽大——实际使用中跨太平洋节点常被选中，导致刷 X、看视频卡顿（实测 x.com 被分到「美国西雅图2」）。收窄到港/日/新/台/韩 16 个节点后，`Fast` 才真正接近「最快」的本意。
+
+代价：这五个地区节点全部不可用时 `Fast` 无节点可选。此时可用 `PROXY` 组手动切到 `AI-USA`。
+
+**三个 url-test 组都排除了机场自带的策略组名。** 订阅里除节点外还有「🇭🇰 香港智能」「🌐 全球智能」「AI专用」等机场预设分组，以及 `updates.cdn-apple.com` 这类非节点条目。纯关键词匹配会把它们收进来，而手册明确不建议在 `url-test` 里嵌套其他分组。故正则末尾统一加了 `^((?!(智能|专用)).)*$` 负向断言。
 
 ## 自定义线路（桌面端没有，如需一致请同步）
 
