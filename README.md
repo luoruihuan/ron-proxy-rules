@@ -59,7 +59,9 @@ https://cdn.jsdelivr.net/gh/luoruihuan/ron-proxy-rules@main/shadowrocket.conf
 
 ### 两个有意为之的决定
 
-**不挂全量 Google 规则集。** AI 规则集已完整收录 Gemini、AI Studio、NotebookLM、Jules、Labs 等 Google AI 域名，再挂 698 条的 `Google.list` 只会把 Gmail、Drive、Maps、blogspot 一并绕去美国，与「AI 走美国」的诉求不符。桌面配置里的 `GEOSITE,google → AI-USA` 按同一标准看也是过宽的。
+**Google 全量走美国，YouTube 例外。** 按用户要求与桌面端对齐：`Google.list`（698 条）指向 `AI-USA`，Gmail、Drive、Maps、Search 等都走美国节点。YouTube 系 9 个域名在其之前显式指向 `Fast`，且 `Google.list` 本身不含任何 youtube 域名，两者不冲突。
+
+**`interval=60` 而非默认的 300。** 手册说明 `url-test` 在两次测速的间隔期内，若当前节点变为不可用，会继续使用该失效节点。这是「手机放置一段时间后代理不通、必须开关一次 VPN 才恢复」的直接原因——开关强制触发了重新测速。缩短到 60s 把最坏等待从 5 分钟降到 1 分钟。**要彻底解决还需在 App 里开启「启用回退」**（首页 → 全局路由 → 启用回退），它会在连接失败 3 次后自动切换到其他可用节点，不等测速周期。
 
 **`PROXY` 组不被任何规则引用。** 它是 `select` 类型，留作需要临时手动指定线路时的入口。所有自动分流都直接指向 `Fast` / `AI-USA` / `香港智能` / `DIRECT`，语义明确。
 
@@ -86,7 +88,7 @@ https://cdn.jsdelivr.net/gh/luoruihuan/ron-proxy-rules@main/shadowrocket.conf
 | 国内域名直连 | Loyalsoldier `direct` (3MB) | blackmatrix7 `China_Domain` (51KB) | 同上；覆盖面有细微出入，少数长尾国内域名可能落到代理 |
 | 国内 IP | `cncidr` 规则集 + `GEOIP,CN` | 仅 `GEOIP,CN` | 精简 |
 | 需代理域名 | 含 `proxy` 规则集 (776KB) | 省略 | 兜底本来就是代理，删掉不改变结果 |
-| Google 全量 | `GEOSITE,google` → AI-USA | 无此规则 | 与「AI 走美国」诉求不符，见上方说明 |
+| Google 全量 | `GEOSITE,google` → AI-USA | `Google.list` → AI-USA | 已同步，两端一致 |
 | 兜底策略 | `MATCH,PROXY`（select 组） | `FINAL,Fast`（直接指向最快） | 语义更贴合「其他走最快」 |
 | `Fast` 节点范围 | 同为港/日/新/台/韩 16 个 | 同左 | 已同步，两端一致 |
 
