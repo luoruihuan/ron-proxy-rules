@@ -61,7 +61,13 @@ https://cdn.jsdelivr.net/gh/luoruihuan/ron-proxy-rules@main/shadowrocket.conf
 
 **Google 全量走美国，YouTube 例外。** 按用户要求与桌面端对齐：`Google.list`（698 条）指向 `AI-USA`，Gmail、Drive、Maps、Search 等都走美国节点。YouTube 系 9 个域名在其之前显式指向 `Fast`，且 `Google.list` 本身不含任何 youtube 域名，两者不冲突。
 
-**`interval=60` 而非默认的 300。** 手册说明 `url-test` 在两次测速的间隔期内，若当前节点变为不可用，会继续使用该失效节点。这是「手机放置一段时间后代理不通、必须开关一次 VPN 才恢复」的直接原因——开关强制触发了重新测速。缩短到 60s 把最坏等待从 5 分钟降到 1 分钟。**要彻底解决还需在 App 里开启「启用回退」**（首页 → 全局路由 → 启用回退），它会在连接失败 3 次后自动切换到其他可用节点，不等测速周期。
+**稳定优先于速度。** 用户明确「节点慢一点也比不能访问好」，故以下三项都按稳定性取舍：
+
+- **`interval=300`、`tolerance=100`** — 与 mihomo 官方默认（300）和 Shadowrocket 手册默认（600）一致。社区共识是稳定链路无需缩短间隔，且频繁换 IP 可能触发 App 风控；调优顺序应为「先放宽 tolerance，再考虑 interval」。曾短暂改为 60 秒，实测手机耗电增加，已改回。
+- **DNS 只用国内 DoH** — 手册明确「DNS 覆写仅针对直连类域名进行解析，代理类域名将经由代理服务器进行解析」。境外域名由节点侧解析，本地配境外 DoH 既不参与解析、也防不了污染。实测 `cloudflare-dns.com` 直连不通、`dns.google` 每次超时 8 秒，并发查询时这些失败连接持续消耗电量和 NE 资源。
+- **不启用 `block-quic`** — 原设 `all-proxy` 会让每条连接先尝试 QUIC 再回落 HTTP2/1.1，闲置唤醒后重连更慢。交给系统自行协商。
+
+> 桌面端不同：那里 `fallback` + 境外 DoH 是有效的，因为 mihomo 的 `fallback` 机制会对境外域名主动使用境外 DNS，与 Shadowrocket 的「代理域名交给节点解析」是两套不同设计。
 
 **`PROXY` 组不被任何规则引用。** 它是 `select` 类型，留作需要临时手动指定线路时的入口。所有自动分流都直接指向 `Fast` / `AI-USA` / `香港智能` / `DIRECT`，语义明确。
 
