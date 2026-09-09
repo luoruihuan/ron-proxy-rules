@@ -61,9 +61,9 @@ https://cdn.jsdelivr.net/gh/luoruihuan/ron-proxy-rules@main/shadowrocket.conf
 
 **Google 全量走 AI，YouTube 例外。** 与桌面端对齐：`Google.list`（698 条）指向 `AI`，Gmail、Drive、Maps、Search 等都走 AI 专用线路。YouTube 系 9 个域名在其之前显式指向 `Fast`，且 `Google.list` 本身不含任何 youtube 域名，两者不冲突。
 
-**稳定优先于速度。** 用户明确「节点慢一点也比不能访问好」，故以下三项都按稳定性取舍：
+**稳定优先于速度。** 用户明确「节点慢一点也比不能访问好」，故 AI 线路按出口稳定性取舍：
 
-- **`interval=300`、`tolerance=100`** — 与 mihomo 官方默认（300）和 Shadowrocket 手册默认（600）一致。社区共识是稳定链路无需缩短间隔，且频繁换 IP 可能触发 App 风控；调优顺序应为「先放宽 tolerance，再考虑 interval」。曾短暂改为 60 秒，实测手机耗电增加，已改回。
+- **AI 组使用 `interval=21600`、`tolerance=100`** — 每 6 小时重新测速，仅在新节点明显更快时切换，减少 Google/AI 服务的出口 IP 抖动。`Fast` 和 `香港智能` 仍使用 300 秒，保证普通流量及时避开故障节点。
 - **DNS 只用国内 DoH** — 手册明确「DNS 覆写仅针对直连类域名进行解析，代理类域名将经由代理服务器进行解析」。境外域名由节点侧解析，本地配境外 DoH 既不参与解析、也防不了污染。实测 `cloudflare-dns.com` 直连不通、`dns.google` 每次超时 8 秒，并发查询时这些失败连接持续消耗电量和 NE 资源。
 - **不启用 `block-quic`** — 原设 `all-proxy` 会让每条连接先尝试 QUIC 再回落 HTTP2/1.1，闲置唤醒后重连更慢。交给系统自行协商。
 
@@ -104,7 +104,7 @@ https://cdn.jsdelivr.net/gh/luoruihuan/ron-proxy-rules@main/shadowrocket.conf
 
 - **手机端拿不到。** base64 订阅（`/subs/shadowrocket/`）只含 34 行纯节点 URI，不含任何策略组——这个结构承载不了 mihomo 的 `proxy-groups`。
 - **桌面端也拿不到。** `proxy-providers` 只导入订阅的 `proxies` 段，`proxy-groups` 不会被引入。所以两端的 `filter` / `policy-regex-filter` 都不存在误收机场策略组的风险（`Fast` 和 `香港智能` 的负向断言属于冗余防护，保留以防订阅格式变化）。
-- **即便能用也不合适。** 机场的 `AI专用` 还包含英国、法国、美国硅谷等范围外节点，不符合当前 AI 分组范围；三个机场组的 `interval` 都是 7200s，节点质量波动要等最多两小时才切换（我们是 300s）。
+- **即便能用也不合适。** 机场的 `AI专用` 还包含英国、法国、美国硅谷等范围外节点，不符合当前 AI 分组范围；机场预设组的 `interval` 为 7200s，节点质量波动要等最多两小时才切换，我们的 `AI` 组改为 21600s 以减少出口 IP 抖动。
 | 进程分流 | `applications` (PROCESS-NAME) | 无 | iOS 没有进程级分流，无解 |
 | DNS | 公司内网 DNS | 公共 DoH | 内网 DNS 在外网不通 |
 
