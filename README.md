@@ -40,7 +40,7 @@ https://cdn.jsdelivr.net/gh/luoruihuan/ron-proxy-rules@main/shadowrocket.conf
 | 组名 | 类型 | 说明 |
 |---|---|---|
 | `Fast` | url-test | 近距离地区（港/日/新/台/韩）里选延迟最低 |
-| `AI-USA` | url-test | 只筛美国节点，AI 服务专用 |
+| `AI` | url-test | 只筛日本、新加坡、美国西雅图和洛杉矶节点，AI 服务专用 |
 | `香港智能` | url-test | 只筛香港节点 |
 | `PROXY` | select | 手动干预入口，不被规则引用 |
 
@@ -50,7 +50,7 @@ https://cdn.jsdelivr.net/gh/luoruihuan/ron-proxy-rules@main/shadowrocket.conf
 
 | 诉求 | 实现方式 |
 |---|---|
-| AI 走美国 | `ai-proxy-rules/global.list` → `AI-USA` |
+| AI 走专用线路 | `ai-proxy-rules/global.list` → `AI` |
 | 国内走直连 | `China_Domain` + `icloud` + `apple` + `GEOIP,CN` → `DIRECT` |
 | 其他走最快 | `FINAL,Fast`（`gfw` / `greatfire` / `tld-not-cn` / `Telegram` 也指向 `Fast`） |
 | 早报走香港 | `zaobao.com` / `zaobao.com.sg` → `香港智能` |
@@ -59,7 +59,7 @@ https://cdn.jsdelivr.net/gh/luoruihuan/ron-proxy-rules@main/shadowrocket.conf
 
 ### 两个有意为之的决定
 
-**Google 全量走美国，YouTube 例外。** 按用户要求与桌面端对齐：`Google.list`（698 条）指向 `AI-USA`，Gmail、Drive、Maps、Search 等都走美国节点。YouTube 系 9 个域名在其之前显式指向 `Fast`，且 `Google.list` 本身不含任何 youtube 域名，两者不冲突。
+**Google 全量走 AI，YouTube 例外。** 与桌面端对齐：`Google.list`（698 条）指向 `AI`，Gmail、Drive、Maps、Search 等都走 AI 专用线路。YouTube 系 9 个域名在其之前显式指向 `Fast`，且 `Google.list` 本身不含任何 youtube 域名，两者不冲突。
 
 **稳定优先于速度。** 用户明确「节点慢一点也比不能访问好」，故以下三项都按稳定性取舍：
 
@@ -69,13 +69,13 @@ https://cdn.jsdelivr.net/gh/luoruihuan/ron-proxy-rules@main/shadowrocket.conf
 
 > 桌面端不同：那里 `fallback` + 境外 DoH 是有效的，因为 mihomo 的 `fallback` 机制会对境外域名主动使用境外 DNS，与 Shadowrocket 的「代理域名交给节点解析」是两套不同设计。
 
-**`PROXY` 组不被任何规则引用。** 它是 `select` 类型，留作需要临时手动指定线路时的入口。所有自动分流都直接指向 `Fast` / `AI-USA` / `香港智能` / `DIRECT`，语义明确。
+**`PROXY` 组不被任何规则引用。** 它是 `select` 类型，留作需要临时手动指定线路时的入口。所有自动分流都直接指向 `Fast` / `AI` / `香港智能` / `DIRECT`，语义明确。
 
 **`Fast` 只让近距离地区参与竞速。** 原先用 `.*` 匹配全部 41 个节点，其中含 12 个美国节点。`url-test` 只按延迟排序，而延迟低不代表带宽大——实际使用中跨太平洋节点常被选中，导致刷 X、看视频卡顿（实测 x.com 被分到「美国西雅图2」）。收窄到港/日/新/台/韩 16 个节点后，`Fast` 才真正接近「最快」的本意。
 
-代价：这五个地区节点全部不可用时 `Fast` 无节点可选。此时可用 `PROXY` 组手动切到 `AI-USA`。
+代价：这五个地区节点全部不可用时 `Fast` 无节点可选。此时可用 `PROXY` 组手动切到 `AI`。
 
-**三个 url-test 组都排除了机场自带的策略组名。** 订阅里除节点外还有「🇭🇰 香港智能」「🌐 全球智能」「AI专用」等机场预设分组，以及 `updates.cdn-apple.com` 这类非节点条目。纯关键词匹配会把它们收进来，而手册明确不建议在 `url-test` 里嵌套其他分组。故正则末尾统一加了 `^((?!(智能|专用)).)*$` 负向断言。
+**三个 url-test 组都不会命中机场自带的策略组名。** `Fast` 和 `香港智能` 使用负向断言排除「智能」「专用」，`AI` 的地区关键词也不会命中「AI专用」等机场预设组，避免在 `url-test` 里嵌套其他分组。
 
 ## 自定义线路（桌面端没有，如需一致请同步）
 
@@ -94,7 +94,7 @@ https://cdn.jsdelivr.net/gh/luoruihuan/ron-proxy-rules@main/shadowrocket.conf
 | 国内域名直连 | Loyalsoldier `direct` (3MB) | blackmatrix7 `China_Domain` (51KB) | 同上；覆盖面有细微出入，少数长尾国内域名可能落到代理 |
 | 国内 IP | `cncidr` 规则集 + `GEOIP,CN` | 仅 `GEOIP,CN` | 精简 |
 | 需代理域名 | 含 `proxy` 规则集 (776KB) | 省略 | 兜底本来就是代理，删掉不改变结果 |
-| Google 全量 | `GEOSITE,google` → AI-USA | `Google.list` → AI-USA | 已同步，两端一致 |
+| Google 全量 | `GEOSITE,google` → AI | `Google.list` → AI | 已同步，两端一致 |
 | 兜底策略 | `MATCH,PROXY`（select 组） | `FINAL,Fast`（直接指向最快） | 语义更贴合「其他走最快」 |
 | `Fast` 节点范围 | 同为港/日/新/台/韩 16 个 | 同左 | 已同步，两端一致 |
 
@@ -103,8 +103,8 @@ https://cdn.jsdelivr.net/gh/luoruihuan/ron-proxy-rules@main/shadowrocket.conf
 机场的 Clash YAML 订阅里带 4 个自己的策略组：`Ghelper`、`🌐 全球智能`（25 节点）、`🇭🇰 香港智能`（8 节点）、`AI专用`（19 节点）。**两端都没有使用它们**，原因：
 
 - **手机端拿不到。** base64 订阅（`/subs/shadowrocket/`）只含 34 行纯节点 URI，不含任何策略组——这个结构承载不了 mihomo 的 `proxy-groups`。
-- **桌面端也拿不到。** `proxy-providers` 只导入订阅的 `proxies` 段，`proxy-groups` 不会被引入。所以两端的 `filter` / `policy-regex-filter` 都不存在误收机场策略组的风险（负向断言 `(?!(智能|专用))` 属于冗余防护，保留以防订阅格式变化）。
-- **即便能用也不合适。** `AI专用` 含英国、法国、日本、新加坡，19 个里只有 11 个美国节点，与「AI 走美国」的诉求不符；`全球智能` 含美国节点，正是会导致刷 X 卡顿的那类配置；三个组的 `interval` 都是 7200s，节点质量波动要等最多两小时才切换（我们是 300s）。
+- **桌面端也拿不到。** `proxy-providers` 只导入订阅的 `proxies` 段，`proxy-groups` 不会被引入。所以两端的 `filter` / `policy-regex-filter` 都不存在误收机场策略组的风险（`Fast` 和 `香港智能` 的负向断言属于冗余防护，保留以防订阅格式变化）。
+- **即便能用也不合适。** 机场的 `AI专用` 还包含英国、法国、美国硅谷等范围外节点，不符合当前 AI 分组范围；三个机场组的 `interval` 都是 7200s，节点质量波动要等最多两小时才切换（我们是 300s）。
 | 进程分流 | `applications` (PROCESS-NAME) | 无 | iOS 没有进程级分流，无解 |
 | DNS | 公司内网 DNS | 公共 DoH | 内网 DNS 在外网不通 |
 
