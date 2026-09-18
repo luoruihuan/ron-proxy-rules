@@ -1,0 +1,249 @@
+#---------------------------------------------------#
+## 配置文件需要放置在 $HOME/.config/clash.meta/*.yaml
+
+## 这份文件是clashX的基础配置文件，请尽量新建配置文件进行修改。
+
+## 如果您不知道如何操作，请参阅
+## Clash Meta wiki  https://docs.metacubex.one
+## Clash Meta wiki  https://clash-meta.wiki
+## Clash Meta Github文档  https://github.com/MetaCubeX/Clash.Meta/blob/Alpha/README.md
+#
+#---------------------------------------------------#
+
+external-controller: 127.0.0.1:49997
+# 本仓库为公开参考版，已移除真实 secret。本机使用时需在本地 config.yaml 里填入实际值，不要提交到 git。
+# secret: <填入本机的 external-controller 密钥，不要提交到 git>
+port: 7890
+socks-port: 7891
+redir-port: 7892
+allow-lan: false
+mode: rule
+log-level: warning
+ipv6: false
+dns:
+  enable: true
+  use-hosts: true
+  # 用纯 IP 解析 DoH 服务器自身的域名，否则出现死循环：
+  # 解析境外域名要访问 DoH -> 访问 DoH 要先解析它的域名 -> 又走 fallback
+  default-nameserver:
+    - 223.5.5.5
+    - 119.29.29.29
+  nameserver:
+    - 10.21.10.1
+    - 10.1.3.1
+    - 119.29.29.29
+    - 223.5.5.5
+  # 境外域名抗污染：nameserver 返回的国内 IP 直接采用；
+  # 若结果不在 CN（fallback-filter 判定），则改用下面的境外 DoH 结果。
+  # 实测国内 DNS 会把 chatgpt.com 污染成 Facebook IP、gemini.google.com 污染成香港小厂 IP。
+  # #Fast 后缀让 DNS 查询本身走代理组发出。
+  # 本机直连境外 DoH 不通（实测 1.1.1.1 直连超时、经代理 0.57s），
+  # 不加这个后缀 fallback 会全部超时，境外域名反而一个都解析不出来。
+  fallback:
+    - 'https://1.1.1.1/dns-query#Fast'
+  # 节点自身域名（如机场的 xxx.plebai.net）必须用国内 DNS 直连解析。
+  # 否则死循环：连节点要先解析它的域名 -> 解析走 fallback -> fallback 又要先连节点
+  proxy-server-nameserver:
+    - https://doh.pub/dns-query
+    - https://dns.alidns.com/dns-query
+  fallback-filter:
+    geoip: true
+    geoip-code: CN
+    ipcidr:
+      - 240.0.0.0/4
+proxy-providers:
+  autoGhelper:
+    type: http
+    # 本仓库为公开参考版，已移除真实机场订阅链接（含 token）。
+    # 本机使用时需在本地 config.yaml 里填入机场提供的实际订阅地址，不要提交到 git。
+    url: "<填入机场的 Clash Meta 订阅链接，不要提交到 git>"
+    path: ./autoGhelper.yaml
+    interval: 172800 # 48小时
+    health-check:
+      enable: true
+      interval: 3600
+      lazy: true
+      url: http://www.gstatic.com/generate_204
+proxy-groups:
+  - name: Fast
+    type: url-test
+    # 只让多轮实测表现较好的四个节点参与竞速（与手机端保持一致）。
+    # 使用精确名称白名单，避免再次选中延迟正常但实际访问不稳定的节点。
+    filter: "^(🇭🇰 香港05|🇭🇰香港04|🇯🇵 日本5|🇸🇬 新加坡\\[CM\\])$"
+    use:
+      - autoGhelper
+    url: http://www.gstatic.com/generate_204
+    interval: 300
+    tolerance: 50
+    timeout: 5000
+  - name: AI
+    type: url-test
+    filter: "日本|新加坡"
+    use:
+      - autoGhelper
+    url: http://www.gstatic.com/generate_204
+    interval: 21600
+    tolerance: 100
+    timeout: 5000
+  - name: 香港智能
+    type: url-test
+    filter: "香港"
+    use:
+      - autoGhelper
+    url: http://www.gstatic.com/generate_204
+    interval: 300
+    tolerance: 50
+    timeout: 5000
+  - name: PROXY
+    type: select
+    proxies:
+      - Fast
+      - AI
+      - DIRECT
+rule-providers:
+  ai-global:
+    type: http
+    behavior: classical
+    url: 'https://cdn.jsdelivr.net/gh/VPSDance/ai-proxy-rules@main/rules/clash/global.yaml'
+    path: ./ruleset/ai-global.yaml
+    interval: 86400
+  reject:
+    type: http
+    behavior: domain
+    url: 'https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/reject.txt'
+    path: ./ruleset/reject.yaml
+    interval: 86400
+  icloud:
+    type: http
+    behavior: domain
+    url: 'https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/icloud.txt'
+    path: ./ruleset/icloud.yaml
+    interval: 86400
+  apple:
+    type: http
+    behavior: domain
+    url: 'https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/apple.txt'
+    path: ./ruleset/apple.yaml
+    interval: 86400
+  google:
+    type: http
+    behavior: domain
+    url: 'https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/google.txt'
+    path: ./ruleset/google.yaml
+    interval: 86400
+  proxy:
+    type: http
+    behavior: domain
+    url: 'https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/proxy.txt'
+    path: ./ruleset/proxy.yaml
+    interval: 86400
+  direct:
+    type: http
+    behavior: domain
+    url: 'https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/direct.txt'
+    path: ./ruleset/direct.yaml
+    interval: 86400
+  private:
+    type: http
+    behavior: domain
+    url: 'https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/private.txt'
+    path: ./ruleset/private.yaml
+    interval: 86400
+  gfw:
+    type: http
+    behavior: domain
+    url: 'https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/gfw.txt'
+    path: ./ruleset/gfw.yaml
+    interval: 86400
+  greatfire:
+    type: http
+    behavior: domain
+    url: 'https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/greatfire.txt'
+    path: ./ruleset/greatfire.yaml
+    interval: 86400
+  tld-not-cn:
+    type: http
+    behavior: domain
+    url: 'https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/tld-not-cn.txt'
+    path: ./ruleset/tld-not-cn.yaml
+    interval: 86400
+  telegramcidr:
+    type: http
+    behavior: ipcidr
+    url: 'https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/telegramcidr.txt'
+    path: ./ruleset/telegramcidr.yaml
+    interval: 86400
+  cncidr:
+    type: http
+    behavior: ipcidr
+    url: 'https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/cncidr.txt'
+    path: ./ruleset/cncidr.yaml
+    interval: 86400
+  lancidr:
+    type: http
+    behavior: ipcidr
+    url: 'https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/lancidr.txt'
+    path: ./ruleset/lancidr.yaml
+    interval: 86400
+  applications:
+    type: http
+    behavior: classical
+    url: 'https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/applications.txt'
+    path: ./ruleset/applications.yaml
+    interval: 86400
+rules:
+  # 本地和管理相关
+  - RULE-SET,lancidr,DIRECT
+  - RULE-SET,private,DIRECT
+  - DOMAIN,clash.razord.top,DIRECT
+  - DOMAIN,yacd.haishan.me,DIRECT
+  - DOMAIN,integrate.api.nvidia.com,DIRECT
+  - DOMAIN,api.smith.langchain.com,DIRECT
+  # 公司内网直连
+  - DOMAIN-SUFFIX,gaiaworks.cn,DIRECT
+  - DOMAIN-SUFFIX,gaia34learning.com,DIRECT
+  - DOMAIN,localhost,DIRECT
+  - DOMAIN,gaiaworks.cn,DIRECT
+  - DOMAIN,gaia34learning.com,DIRECT
+  - IP-CIDR,127.0.0.0/8,DIRECT
+  - IP-CIDR,10.0.0.0/8,DIRECT
+  - IP-CIDR,10.23.0.0/16,DIRECT
+  # 公司自建AI中转域名，走直连（优先级高于ai-global，避免被规则集覆盖到代理）
+  - DOMAIN-SUFFIX,coding.gaiaworks.net,DIRECT
+  # 自定义线路
+  - DOMAIN,translate.googleapis.com,Fast
+  - DOMAIN-SUFFIX,zaobao.com,香港智能
+  - DOMAIN-SUFFIX,zaobao.com.sg,香港智能
+  # AI 服务专用：日本/新加坡
+  - RULE-SET,ai-global,AI
+  # Google 全量走 AI 综合线路
+  - GEOSITE,google,AI
+  # 服务商相关域名直连
+  - DOMAIN-SUFFIX,p5pv.com,DIRECT
+  - DOMAIN-SUFFIX,z7zi.com,DIRECT
+  - DOMAIN-SUFFIX,j2ai.com,DIRECT
+  - DOMAIN-SUFFIX,plebai.net,DIRECT
+  - DOMAIN-SUFFIX,gotochinatown.net,DIRECT
+  - DOMAIN-SUFFIX,tcpbbr.net,DIRECT
+  # 广告拦截
+  - RULE-SET,reject,REJECT
+  # 应用程序直连
+  - RULE-SET,applications,DIRECT
+  # 国内服务直连
+  - RULE-SET,icloud,DIRECT
+  - RULE-SET,apple,DIRECT
+  - RULE-SET,direct,DIRECT
+  - RULE-SET,cncidr,DIRECT
+  - GEOIP,LAN,DIRECT
+  - GEOIP,CN,DIRECT
+  # 需要代理的服务
+  - RULE-SET,google,AI
+  - RULE-SET,proxy,PROXY
+  - RULE-SET,gfw,PROXY
+  - RULE-SET,greatfire,PROXY
+  - RULE-SET,tld-not-cn,PROXY
+  - RULE-SET,telegramcidr,PROXY
+  # 兜底规则：内网IP直连，其他走代理
+  - IP-CIDR,192.168.0.0/16,DIRECT
+  - IP-CIDR,172.16.0.0/12,DIRECT
+  - MATCH,PROXY

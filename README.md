@@ -4,7 +4,8 @@ Shadowrocket 分流配置，与桌面 ClashX Meta 的规则保持同源。
 
 ## 这个仓库里有什么
 
-- `shadowrocket.conf` —— 手机端唯一配置文件
+- `shadowrocket.conf` —— 手机端唯一配置文件，Shadowrocket 直接订阅这个文件自动更新
+- `clash-meta.yaml` —— 桌面 ClashX Meta 的**脱敏参考版**，仅供查看/备份，不接自动更新（见下方说明）
 
 **不包含**：节点信息、机场订阅链接、任何 token 或密钥。节点由机场订阅在 App 内单独提供，与本配置解耦。
 
@@ -19,6 +20,17 @@ jsdelivr 加速（有缓存延迟，push 后不会立刻生效）：
 ```
 https://cdn.jsdelivr.net/gh/luoruihuan/ron-proxy-rules@main/shadowrocket.conf
 ```
+
+## 桌面端 `clash-meta.yaml`（脱敏参考版）
+
+这份文件与本机实际使用的 `~/.config/clash.meta/config.yaml` 逐条一致，**唯二**的区别：
+
+- `secret` 字段留空（占位注释提示本机自行填入）
+- `proxy-providers.autoGhelper.url` 留空（占位注释提示本机自行填入机场订阅链接）
+
+**用途仅是可分享/可版本追踪的参考底稿，不接 ClashX Meta 的「托管配置」自动更新。**
+
+原因：ClashX Meta 没有覆写/合并（mixin、override）机制，「托管配置」更新是整份文件替换，不存在"远程模板 + 本地补回密钥"这一层——GitHub 官方仓库的 [#179](https://github.com/MetaCubeX/ClashX.Meta/issues/179)、[#180](https://github.com/MetaCubeX/ClashX.Meta/issues/180) 已确认这一点。所以改规则时仍需手动同步改本机 `config.yaml`（`shadowrocket.conf` 那部分照常同步，见「与桌面配置的已知差异」），这份文件只是让改动历史可追踪、方便换机或分享排查思路时对照。
 
 ## 手机端一次性配置
 
@@ -108,7 +120,7 @@ https://cdn.jsdelivr.net/gh/luoruihuan/ron-proxy-rules@main/shadowrocket.conf
 | 进程分流 | `applications` (PROCESS-NAME) | 无 | iOS 没有进程级分流，无解 |
 | DNS | 公司内网 DNS | 公共 DoH | 内网 DNS 在外网不通 |
 
-改桌面规则时记得同步改这里（反之亦然）。想彻底消除差异，需要改成「单一真源 + GitHub Actions 生成两端产物」的方案。
+改桌面规则时记得同步改这里（反之亦然）。
 
 ## 上游规则集
 
