@@ -40,7 +40,7 @@ https://cdn.jsdelivr.net/gh/luoruihuan/ron-proxy-rules@main/shadowrocket.conf
 | 组名 | 类型 | 说明 |
 |---|---|---|
 | `Fast` | url-test | 四个实测优选节点中自动选择：香港05、香港04、日本5、新加坡 `[CM]` |
-| `AI` | url-test | 只筛日本、新加坡、美国西雅图和洛杉矶节点，AI 服务专用 |
+| `AI` | url-test | 只筛日本、新加坡节点，AI 服务专用 |
 | `香港智能` | url-test | 只筛香港节点 |
 | `PROXY` | select | 手动干预入口，不被规则引用 |
 
