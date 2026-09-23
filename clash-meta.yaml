@@ -35,7 +35,7 @@ dns:
     - 223.5.5.5
   # 公司内网域名只能由内网 DNS 解析，公网 DNS 会返回 NXDOMAIN。
   # nameserver 是并发竞速取最快结果，公网 DNS 的 NXDOMAIN 常先到并被缓存，
-  # 导致纯内网域名（如 gaia-geo 这类）间歇性解析失败（ERR_CONNECTION_CLOSED）。
+  # 导致 gaia-geo.gaiaworks.cn 这类纯内网域名间歇性解析失败（ERR_CONNECTION_CLOSED）。
   # 这里强制内网域名只问内网 DNS，绕开竞速。
   nameserver-policy:
     '+.gaiaworks.cn':
