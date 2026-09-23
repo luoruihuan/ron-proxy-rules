@@ -33,6 +33,17 @@ dns:
     - 10.1.3.1
     - 119.29.29.29
     - 223.5.5.5
+  # 公司内网域名只能由内网 DNS 解析，公网 DNS 会返回 NXDOMAIN。
+  # nameserver 是并发竞速取最快结果，公网 DNS 的 NXDOMAIN 常先到并被缓存，
+  # 导致纯内网域名（如 gaia-geo 这类）间歇性解析失败（ERR_CONNECTION_CLOSED）。
+  # 这里强制内网域名只问内网 DNS，绕开竞速。
+  nameserver-policy:
+    '+.gaiaworks.cn':
+      - 10.1.3.1
+      - 10.21.10.1
+    '+.gaiaworks.net':
+      - 10.1.3.1
+      - 10.21.10.1
   # 境外域名抗污染：nameserver 返回的国内 IP 直接采用；
   # 若结果不在 CN（fallback-filter 判定），则改用下面的境外 DoH 结果。
   # 实测国内 DNS 会把 chatgpt.com 污染成 Facebook IP、gemini.google.com 污染成香港小厂 IP。
