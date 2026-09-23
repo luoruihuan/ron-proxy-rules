@@ -53,6 +53,7 @@ https://cdn.jsdelivr.net/gh/luoruihuan/ron-proxy-rules@main/shadowrocket.conf
 |---|---|---|
 | `Fast` | url-test | 四个实测优选节点中自动选择：香港05、香港04、日本5、新加坡 `[CM]` |
 | `AI` | url-test | 只筛日本、新加坡节点，AI 服务专用 |
+| `美国` | url-test | 只筛美国节点，供 Meta Muse 等美国独占服务使用 |
 | `香港智能` | url-test | 只筛香港节点 |
 | `PROXY` | select | 手动干预入口，不被规则引用 |
 
@@ -81,6 +82,12 @@ https://cdn.jsdelivr.net/gh/luoruihuan/ron-proxy-rules@main/shadowrocket.conf
 
 > 桌面端不同：那里 `fallback` + 境外 DoH 是有效的，因为 mihomo 的 `fallback` 机制会对境外域名主动使用境外 DNS，与 Shadowrocket 的「代理域名交给节点解析」是两套不同设计。
 
+**Meta Muse 锁定美国。** Muse 是 Meta 于 2026-09-08 推出的个人 AI 代理（Muse Spark 驱动），**首发仅限美国、18 岁及以上**，入口为 iOS / Android App、`muse.ai` 网页版和 WhatsApp。非美国出口 IP 会被判定为不支持的地区，故单独走 `美国` 组而不是 `AI` 组。
+
+两条规则必须置于 AI 规则集之前：上游 `ai-proxy-rules/global.list` 已收录 `DOMAIN-SUFFIX,meta.ai`（但不含 `muse.ai`），若顺序颠倒，`meta.ai` 会被它捞去 `AI` 组（日本/新加坡），Muse 直接不可用。
+
+`美国` 组的 `interval` 取 21600 秒，与 `AI` 组一致：Muse 是长任务代理，出口 IP 抖动会触发 Meta 账号风控或会话失效，代价比慢几十毫秒高得多。
+
 **`PROXY` 组不被任何规则引用。** 它是 `select` 类型，留作需要临时手动指定线路时的入口。所有自动分流都直接指向 `Fast` / `AI` / `香港智能` / `DIRECT`，语义明确。
 
 **`Fast` 只让四个实测优选节点参与竞速。** 当前白名单为 `🇭🇰 香港05`、`🇭🇰香港04`、`🇯🇵 日本5`、`🇸🇬 新加坡[CM]`。它们经过独立、多轮的连通性与实际传输测试；精确名称匹配可避免延迟正常但访问不稳定的其他节点再次进入自动选择。
@@ -94,6 +101,7 @@ https://cdn.jsdelivr.net/gh/luoruihuan/ron-proxy-rules@main/shadowrocket.conf
 | 域名 | 策略 | 原因 |
 |---|---|---|
 | `deepseek.com` | DIRECT | 上游 AI 规则集只收录海外 AI，不含 DeepSeek |
+| `muse.ai` / `meta.ai` | 美国 | 见下方「Meta Muse 锁定美国」 |
 | `youtube.com` 等 9 个域名 | Fast | 显式置于 `gfw` 规则集之前，避免被其覆盖 |
 
 ## 与桌面配置的已知差异
@@ -109,6 +117,7 @@ https://cdn.jsdelivr.net/gh/luoruihuan/ron-proxy-rules@main/shadowrocket.conf
 | Google 全量 | `GEOSITE,google` → AI | `Google.list` → AI | 已同步，两端一致 |
 | 兜底策略 | `MATCH,PROXY`（select 组） | `FINAL,Fast`（直接指向最快） | 语义更贴合「其他走最快」 |
 | `Fast` 节点范围 | 同为香港05、香港04、日本5、新加坡 `[CM]` | 同左 | 已同步，两端一致 |
+| Meta Muse | `muse.ai` / `meta.ai` → `美国` | 同左 | 已同步，两端一致 |
 
 ### 关于机场自带的策略组
 

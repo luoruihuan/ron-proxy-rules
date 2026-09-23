@@ -85,6 +85,20 @@ proxy-groups:
     interval: 21600
     tolerance: 100
     timeout: 5000
+  - name: 美国
+    type: url-test
+    # 排除两个实测有问题的节点：美国洛杉矶[CM]（服务器 TCP 可达但代理转发完全失败，
+    # mihomo 延迟测试直接报错）、美国洛杉矶2（TLS 握手失败，仅明文 HTTP 可通）。
+    # 改用精确白名单：12 个节点均经三源交叉验证（Cloudflare trace / ipinfo / ip-api）确认落地美国。
+    # Muse 等美国独占服务专用。与 AI 组同为 21600 秒，避免出口 IP 抖动导致
+    # Meta 账号风控/会话失效（Muse 是长任务代理，换 IP 代价比慢几十毫秒高）
+    filter: "^(美国西雅图|美国西雅图2|美国硅谷|美国硅谷2|美国硅谷3|美国硅谷4|美国硅谷5|美国硅谷6|美国洛杉矶|美国洛杉矶3|美国圣何塞|美国ISP)$"
+    use:
+      - autoGhelper
+    url: http://www.gstatic.com/generate_204
+    interval: 21600
+    tolerance: 100
+    timeout: 5000
   - name: 香港智能
     type: url-test
     filter: "香港"
@@ -99,6 +113,8 @@ proxy-groups:
     proxies:
       - Fast
       - AI
+      - 美国
+      - 香港智能
       - DIRECT
 rule-providers:
   ai-global:
@@ -214,6 +230,22 @@ rules:
   - DOMAIN,translate.googleapis.com,Fast
   - DOMAIN-SUFFIX,zaobao.com,香港智能
   - DOMAIN-SUFFIX,zaobao.com.sg,香港智能
+  # Meta Muse（美国独占：仅限美国 18+，iOS/Android/Web/WhatsApp，Muse Spark 驱动）
+  # 必须置于 ai-global 之前：该规则集含 DOMAIN-SUFFIX,meta.ai，否则会被捞去 AI 组（日本/新加坡）
+  - DOMAIN-SUFFIX,muse.ai,美国
+  - DOMAIN-SUFFIX,meta.ai,美国
+  # Muse 用 Meta 账号（Facebook/Instagram）登录，登录链路必须与页面同出口。
+  # 实测 2026-09-20 09:27 那次登录：muse.ai 走香港的同时，auth.meta.com /
+  # www.facebook.com / www.instagram.com 被 RULE-SET,proxy 捞去香港，
+  # 等于向 Meta 暴露跨区访问。故一并锁美国。
+  # 副作用：平时刷 Facebook / Instagram 也走美国，比香港慢（美国最快 193ms）。
+  - DOMAIN-SUFFIX,meta.com,美国
+  - DOMAIN-SUFFIX,facebook.com,美国
+  # facebook.net 与 facebook.com 是不同顶级域，实测 connect.facebook.net
+  # （Meta 登录 SDK）会漏给 RULE-SET,proxy，必须单列
+  - DOMAIN-SUFFIX,facebook.net,美国
+  - DOMAIN-SUFFIX,fbcdn.net,美国
+  - DOMAIN-SUFFIX,instagram.com,美国
   # AI 服务专用：日本/新加坡
   - RULE-SET,ai-global,AI
   # Google 全量走 AI 综合线路
