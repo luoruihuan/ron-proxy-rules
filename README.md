@@ -35,6 +35,7 @@ https://raw.githubusercontent.com/luoruihuan/ron-proxy-rules/main/shadowrocket-o
 - 对照本机 Shadowrocket 自带 `default.conf`，保留 Apple Intelligence / Siri 中继、Copilot 代理例外，以及 Microsoft、Steam、NVIDIA、Oracle、PayPal 等常用直连例外。上述厂商不属于“国内”，直连是有意保留的默认行为。
 - AI 核心域名有本地代理规则；其余服务继续使用远程规则集。远程规则下载失败仍可能影响完整覆盖，需检查规则集更新结果。
 - 保留国内 DNS 与禁用 IPv6 设置，不启用额外的 QUIC 拦截。银行域名旁路不等于隐藏 VPN 状态，公司内网直连也不等于可在外网访问。
+- 公司内网域名（`*.gaiaworks.cn` / `*.gaiaworks.net` / `*.gaia34learning.com`）在 `[Host]` 中指定内网 DNS `10.1.3.1` 解析，与桌面 `nameserver-policy` 同源：公网 DNS 会把 gaiaworks.cn 解析到公网入口 IP（GitLab 等服务在公网入口不可达），纯内网域���则直接 NXDOMAIN。外网时内网 DNS 不可达，这些域名解析会超时——外网本就访问不了内网服务，可接受。
 - 此文件独立维护；机场版、Clash 配置不会随此文件修改。更新基础规则时需分别检查适用范围。
 
 ## 桌面端 `clash-meta.yaml`（脱敏参考版）
@@ -143,7 +144,7 @@ https://raw.githubusercontent.com/luoruihuan/ron-proxy-rules/main/shadowrocket-o
 - **桌面端也拿不到。** `proxy-providers` 只导入订阅的 `proxies` 段，`proxy-groups` 不会被引入。所以两端的 `filter` / `policy-regex-filter` 都不存在误收机场策略组的风险（`Fast` 和 `香港智能` 的负向断言属于冗余防护，保留以防订阅格式变化）。
 - **即便能用也不合适。** 机场的 `AI专用` 还包含英国、法国、美国硅谷等范围外节点，不符合当前 AI 分组范围；机场预设组的 `interval` 为 7200s，节点质量波动要等最多两小时才切换，我们的 `AI` 组改为 21600s 以减少出口 IP 抖动。
 | 进程分流 | `applications` (PROCESS-NAME) | 无 | iOS 没有进程级分流，无解 |
-| DNS | 公司内网 DNS | 公共 DoH | 内网 DNS 在外网不通 |
+| DNS | 公司内网 DNS | 公共 DoH + `[Host]` 内网域名指定 `10.1.3.1` | 内网 DNS 在外网不通；手机端外网时公司域名解析会超时（可接受，外网本就访问不了内网服务） |
 
 改桌面规则时记得同步改这里（反之亦然）。
 
