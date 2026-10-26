@@ -4,7 +4,8 @@ Shadowrocket 分流配置，与桌面 ClashX Meta 的规则保持同源。
 
 ## 这个仓库里有什么
 
-- `shadowrocket.conf` —— 手机端唯一配置文件，Shadowrocket 直接订阅这个文件自动更新
+- `shadowrocket.conf` —— 机场多节点配置，Shadowrocket 可订阅自动更新
+- `shadowrocket-oracle.conf` —— 甲骨文单节点配置，所有代理策略使用首页选中的节点
 - `clash-meta.yaml` —— 桌面 ClashX Meta 的**脱敏参考版**，仅供查看/备份，不接自动更新（见下方说明）
 
 **不包含**：节点信息、机场订阅链接、任何 token 或密钥。节点由机场订阅在 App 内单独提供，与本配置解耦。
@@ -20,6 +21,21 @@ jsdelivr 加速（有缓存延迟，push 后不会立刻生效）：
 ```
 https://cdn.jsdelivr.net/gh/luoruihuan/ron-proxy-rules@main/shadowrocket.conf
 ```
+
+## 甲骨文单节点配置
+
+```text
+https://raw.githubusercontent.com/luoruihuan/ron-proxy-rules/main/shadowrocket-oracle.conf
+```
+
+在 Shadowrocket「配置」中添加链接、下载并使用配置；首页选中甲骨文 SS 节点，**全局路由设为「配置」**。以后在这份配置上执行「更新配置」，无需重新添加节点。
+
+- 国内、公司内网指定域名直连；广告拦截；其他流量默认使用首页节点。
+- `Fast`、`AI`、`美国`、`香港智能` 仅为兼容原规则的名称，不再筛选地区或测速，也不保证出口地区；更换首页节点会改变所有代理组的实际出口。
+- 对照本机 Shadowrocket 自带 `default.conf`，保留 Apple Intelligence / Siri 中继、Copilot 代理例外，以及 Microsoft、Steam、NVIDIA、Oracle、PayPal 等常用直连例外。上述厂商不属于“国内”，直连是有意保留的默认行为。
+- AI 核心域名有本地代理规则；其余服务继续使用远程规则集。远程规则下载失败仍可能影响完整覆盖，需检查规则集更新结果。
+- 保留国内 DNS 与禁用 IPv6 设置，不启用额外的 QUIC 拦截。银行域名旁路不等于隐藏 VPN 状态，公司内网直连也不等于可在外网访问。
+- 此文件独立维护；机场版、Clash 配置不会随此文件修改。更新基础规则时需分别检查适用范围。
 
 ## 桌面端 `clash-meta.yaml`（脱敏参考版）
 
