@@ -5,7 +5,7 @@ Shadowrocket 分流配置，与桌面 ClashX Meta 的规则保持同源。
 ## 这个仓库里有什么
 
 - `shadowrocket.conf` —— 机场多节点配置，Shadowrocket 可订阅自动更新
-- `shadowrocket-oracle.conf` —— 甲骨文单节点配置，所有代理策略使用首页选中的节点
+- `shadowrocket-oracle.conf` —— 自建双节点自动择优配置，所有代理策略共用 `Fast` 的测试结果
 - `clash-meta.yaml` —— 桌面 ClashX Meta 的**脱敏参考版**，仅供查看/备份，不接自动更新（见下方说明）
 
 **不包含**：节点信息、机场订阅链接、任何 token 或密钥。节点由机场订阅在 App 内单独提供，与本配置解耦。
@@ -22,20 +22,24 @@ jsdelivr 加速（有缓存延迟，push 后不会立刻生效）：
 https://cdn.jsdelivr.net/gh/luoruihuan/ron-proxy-rules@main/shadowrocket.conf
 ```
 
-## 甲骨文单节点配置
+## 自建双节点自动择优配置
 
 ```text
 https://raw.githubusercontent.com/luoruihuan/ron-proxy-rules/main/shadowrocket-oracle.conf
 ```
 
-在 Shadowrocket「配置」中添加链接、下载并使用配置；首页选中甲骨文 SS 节点，**全局路由设为「配置」**。以后在这份配置上执行「更新配置」，无需重新添加节点。
+适用于 Mac / iOS Shadowrocket。先在客户端导入两个节点，名称必须分别为 `Ron-vm1-Hysteria2`、`Ron-vm2-Hysteria2`（当前协议为 Hysteria2，并非 SS）；本文件只引用节点名称，不包含服务器地址或密码。
 
-- 国内、公司内网指定域名直连；广告拦截；其他流量默认使用首页节点。
-- `Fast`、`AI`、`美国`、`香港智能` 仅为兼容原规则的名称，不再筛选地区或测速，也不保证出口地区；更换首页节点会改变所有代理组的实际出口。
+在 Shadowrocket「配置」中添加链接、下载并使用配置，**全局路由设为「配置」**。以后更新此配置并断开重连，无需重新添加节点；在 GitHub 链接更新前，项目改动需要先提交并推送，单独修改本地仓库不会改变远程配置。也可直接导入项目中的本地 `.conf` 文件试用。
+
+- 国内、公司内网指定域名直连；广告拦截；其他流量默认走 `Fast` 自动择优节点，不再依赖首页选中的节点。
+- `Fast` 使用 `url-test`，只测试上述两个节点，测试地址为 `https://www.gstatic.com/generate_204`；每 300 秒按需重新测试，超时 5 秒，延迟改善超过 500ms 才切换；优先保持当前节点与出口 IP 稳定，而不是追逐小幅延迟改善。该阈值不保证固定 IP，节点不可用或重新连接时仍可能更换出口。
+- `AI`、`美国`、`香港智能` 是兼容原规则的别名，均通过 `select, Fast` 共用择优结果，不筛选地区、不保证美国／香港出口。以后节点改名时必须同步修改本文件；其他新增节点不会自动参加测试。
+- 自动择优衡量连通性和延迟，不等于带宽测试，也不保证 AI 服务解锁。两次测试之间仍可能暂时选中已失效的节点；切换会改变后续连接的出口，不保证现有连接无缝迁移。
 - 对照本机 Shadowrocket 自带 `default.conf`，保留 Apple Intelligence / Siri 中继、Copilot 代理例外，以及 Microsoft、Steam、NVIDIA、Oracle、PayPal 等常用直连例外。上述厂商不属于“国内”，直连是有意保留的默认行为。
 - AI 核心域名有本地代理规则；其余服务继续使用远程规则集。远程规则下载失败仍可能影响完整覆盖，需检查规则集更新结果。
 - 保留国内 DNS 与禁用 IPv6 设置，不启用额外的 QUIC 拦截。银行域名旁路不等于隐藏 VPN 状态，公司内网直连也不等于可在外网访问。
-- 公司内网域名（`*.gaiaworks.cn` / `*.gaiaworks.net` / `*.gaia34learning.com`）在 `[Host]` 中指定内网 DNS `10.1.3.1` 解析，与桌面 `nameserver-policy` 同源：公网 DNS 会把 gaiaworks.cn 解析到公网入口 IP（GitLab 等服务在公网入口不可达），纯内网域���则直接 NXDOMAIN。外网时内网 DNS 不可达，这些域名解析会超时——外网本就访问不了内网服务，可接受。
+- 公司域名 `gaiaworks.cn` / `gaiaworks.net` / `gaia34learning.com` 及其子域名均有高优先级 `DIRECT` 规则、系统代理旁路和 `always-real-ip` 真实地址应答，并在 `[Host]` 中指定内网 DNS `10.1.3.1`：公网 DNS 会把 GitLab 解析到公网入口 IP，部分纯内网域名则返回 NXDOMAIN。根域名和通配子域名分别配置，避免漏匹配。外网时内网 DNS 不可达，这些域名解析可能超时；此配置适合公司网络或具有相应内网路由的环境。
 - 此文件独立维护；机场版、Clash 配置不会随此文件修改。更新基础规则时需分别检查适用范围。
 
 ## 桌面端 `clash-meta.yaml`（脱敏参考版）
@@ -65,6 +69,8 @@ https://raw.githubusercontent.com/luoruihuan/ron-proxy-rules/main/shadowrocket-o
 > 注意：`更新配置` 会用远程版本覆盖本地，手机上的手工微调会丢失。所有改动都在这个仓库里做。
 
 ## 策略组
+
+以下各节描述机场版 `shadowrocket.conf`，不适用于上面的自建双节点配置。
 
 | 组名 | 类型 | 说明 |
 |---|---|---|
