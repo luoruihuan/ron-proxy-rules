@@ -28,13 +28,13 @@ https://cdn.jsdelivr.net/gh/luoruihuan/ron-proxy-rules@main/shadowrocket.conf
 https://raw.githubusercontent.com/luoruihuan/ron-proxy-rules/main/shadowrocket-oracle.conf
 ```
 
-适用于 Mac / iOS Shadowrocket。先在客户端导入两个节点，名称必须分别为 `Ron-vm1-Hysteria2`、`Ron-vm2-Hysteria2`（当前协议为 Hysteria2，并非 SS）；本文件只引用节点名称，不包含服务器地址或密码。
+适用于 Mac / iOS Shadowrocket。先在客户端导入四个节点（两台 VM × 双协议），名称必须分别为 `Hy2-vm2-main`、`Reality-vm2-main`、`Hy2-backup`、`Reality-backup`（纯文本无 emoji；vm2 为主力机、vm1 为备用机；协议为 Hysteria2 与 VLESS Reality，并非 SS）；本文件只引用节点名称，不包含服务器地址或密码。
 
 在 Shadowrocket「配置」中添加链接、下载并使用配置，**全局路由设为「配置」**。以后更新此配置并断开重连，无需重新添加节点；在 GitHub 链接更新前，项目改动需要先提交并推送，单独修改本地仓库不会改变远程配置。也可直接导入项目中的本地 `.conf` 文件试用。
 
 - 国内、公司内网指定域名直连；广告拦截；其他流量默认走 `Fast` 自动择优节点，不再依赖首页选中的节点。
-- `Fast` 使用 `url-test`，只测试上述两个节点，测试地址为 `https://www.gstatic.com/generate_204`；每 300 秒按需重新测试，超时 5 秒，延迟改善超过 500ms 才切换；优先保持当前节点与出口 IP 稳定，而不是追逐小幅延迟改善。该阈值不保证固定 IP，节点不可用或重新连接时仍可能更换出口。
-- `AI`、`美国`、`香港智能` 是兼容原规则的别名，均通过 `select, Fast` 共用择优结果，不筛选地区、不保证美国／香港出口。以后节点改名时必须同步修改本文件；其他新增节点不会自动参加测试。
+- `Fast` 使用 `url-test`，只测试上述四个节点（双机双协议，Hy2 优先承担流量，Reality 是 UDP QoS/阻断时的 TCP 兕底），测试地址为 `https://www.gstatic.com/generate_204`；每 300 秒按需重新测试，超时 5 秒，延迟改善超过 500ms 才切换；优先保持当前节点与出口 IP 稳定，而不是追逐小幅延迟改善。该阈值不保证固定 IP，节点不可用或重新连接时仍可能更换出口；main/backup 命名不代表择优优先级。
+- 只保留 `Fast` 一个策略组（原 `AI`/`美国`/`香港智能` 别名组已删除，所有规则统一指向 `Fast`）。`url-test` 组是小火箭唯一的自动测速/故障转移机制，不能省：没有它只能手动切节点。以后节点改名时必须同步修改本文件；其他新增节点不会自动参加测试。
 - 自动择优衡量连通性和延迟，不等于带宽测试，也不保证 AI 服务解锁。两次测试之间仍可能暂时选中已失效的节点；切换会改变后续连接的出口，不保证现有连接无缝迁移。
 - 对照本机 Shadowrocket 自带 `default.conf`，保留 Apple Intelligence / Siri 中继、Copilot 代理例外，以及 Microsoft、Steam、NVIDIA、Oracle、PayPal 等常用直连例外。上述厂商不属于“国内”，直连是有意保留的默认行为。
 - AI 核心域名有本地代理规则；其余服务继续使用远程规则集。远程规则下载失败仍可能影响完整覆盖，需检查规则集更新结果。
