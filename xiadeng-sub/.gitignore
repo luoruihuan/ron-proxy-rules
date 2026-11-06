@@ -1,0 +1,6 @@
+# 运行期文件：含真实订阅 token、上游账号密码，禁止入库
+config.json
+state.json
+last_good.yaml
+*.log
+__pycache__/

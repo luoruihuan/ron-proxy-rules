@@ -8,6 +8,7 @@ Shadowrocket 分流配置，与桌面 ClashX Meta 的规则保持同源。
 - `shadowrocket-oracle.conf` —— 自建双节点自动择优配置，所有代理策略共用 `Fast` 的测试结果（**日常用这份**）
 - `shadowrocket-residential.conf` —— 与上一份规则相同，出口改为虾蹬静态住宅 IP（临时需要住宅身份时切换）
 - `clash-meta.yaml` —— 桌面 ClashX Meta 的**脱敏参考版**，仅供查看/备份，不接自动更新（见下方说明）
+- `xiadeng-sub/` —— 静态住宅订阅精选服务（脱敏版）：定时巡检落地 IP、只输出前 N 个可用节点，并把 `dialer-proxy` 改写成自建前置；含飞书卡片告警。见该目录内 README
 
 **不包含**：节点信息、机场订阅链接、任何 token 或密钥。节点由机场订阅在 App 内单独提供，与本配置解耦。
 
