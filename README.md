@@ -5,7 +5,8 @@ Shadowrocket 分流配置，与桌面 ClashX Meta 的规则保持同源。
 ## 这个仓库里有什么
 
 - `shadowrocket.conf` —— 机场多节点配置，Shadowrocket 可订阅自动更新
-- `shadowrocket-oracle.conf` —— 自建双节点自动择优配置，所有代理策略共用 `Fast` 的测试结果
+- `shadowrocket-oracle.conf` —— 自建双节点自动择优配置，所有代理策略共用 `Fast` 的测试结果（**日常用这份**）
+- `shadowrocket-residential.conf` —— 与上一份规则相同，出口改为虾蹬静态住宅 IP（临时需要住宅身份时切换）
 - `clash-meta.yaml` —— 桌面 ClashX Meta 的**脱敏参考版**，仅供查看/备份，不接自动更新（见下方说明）
 
 **不包含**：节点信息、机场订阅链接、任何 token 或密钥。节点由机场订阅在 App 内单独提供，与本配置解耦。
@@ -14,6 +15,8 @@ Shadowrocket 分流配置，与桌面 ClashX Meta 的规则保持同源。
 
 ```
 https://raw.githubusercontent.com/luoruihuan/ron-proxy-rules/main/shadowrocket.conf
+https://raw.githubusercontent.com/luoruihuan/ron-proxy-rules/main/shadowrocket-oracle.conf
+https://raw.githubusercontent.com/luoruihuan/ron-proxy-rules/main/shadowrocket-residential.conf
 ```
 
 jsdelivr 加速（有缓存延迟，push 后不会立刻生效）：
@@ -36,8 +39,8 @@ https://raw.githubusercontent.com/luoruihuan/ron-proxy-rules/main/shadowrocket-o
 - `出口` 是 `select`，成员为 `Fast` 和 `住宅`：日常用 `Fast`，需要“住宅家宽出口”时切到 `住宅`，用完切回。规则全部指向 `出口`，因此只改这一个组就能把全量出口切过去。
 - `住宅` 是 `fallback`，依次为 5 个虾蹬精选静态住宅节点，最后一项是 `Fast`：落地节点会依次尝试，**5 个全挂时自动回落到 `Fast`**，家宽/上游出问题不影响正常上网，无需人工切回。
 - `Fast` 使用 `url-test`，只测试上述四个节点（双机双协议，Hy2 优先承担流量，Reality 是 UDP QoS/阻断时的 TCP 兕底），测试地址为 `https://www.gstatic.com/generate_204`；每 300 秒按需重新测试，超时 5 秒，延迟改善超过 500ms 才切换；优先保持当前节点与出口 IP 稳定，而不是追逐小幅延迟改善。该阈值不保证固定 IP，节点不可用或重新连接时仍可能更换出口；main/backup 命名不代表择优优先级。
-- 保留 `Fast`（`url-test`）作为默认出口；新增 `住宅`（`fallback`）与 `出口`（`select`）两个组。`url-test` 组是小火箭唯一的自动测速/故障转移机制，不能省：没有它只能手动切节点。节点改名时必须同步修改本文件；其他新增节点不会自动参加测试。
-- `住宅` 组引用的是虾蹬精选订阅里的节点名，**名字里带 IP**：当精选集合变化（某个落地失效被备选替换）时，需要把 `住宅 = fallback, ...` 那一行里的节点名同步一次，否则该条会变成悬空引用。
+- 只保留 `Fast`（`url-test`）；`url-test` 组是小火箭唯一的自动测速/故障转移机制，不能省：没有它只能手动切节点。节点改名时必须同步修改本文件；其他新增节点不会自动参加测试。
+- 住宅出口独立维护在 `shadowrocket-residential.conf`，版式与规则集与本文件完全一致，只在 `[Proxy Group]` 多一个 `住宅`（`url-test`，静态38 + 静态12）并把策略名换成 `住宅`。
 - 自动择优衡量连通性和延迟，不等于带宽测试，也不保证 AI 服务解锁。两次测试之间仍可能暂时选中已失效的节点；切换会改变后续连接的出口，不保证现有连接无缝迁移。
 - 对照本机 Shadowrocket 自带 `default.conf`，保留 Apple Intelligence / Siri 中继、Copilot 代理例外，以及 Microsoft、Steam、NVIDIA、Oracle、PayPal 等常用直连例外。上述厂商不属于“国内”，直连是有意保留的默认行为。
 - AI 核心域名有本地代理规则；其余服务继续使用远程规则集。远程规则下载失败仍可能影响完整覆盖，需检查规则集更新结果。
@@ -45,24 +48,40 @@ https://raw.githubusercontent.com/luoruihuan/ron-proxy-rules/main/shadowrocket-o
 - 公司域名 `gaiaworks.cn` / `gaiaworks.net` / `gaia34learning.com` 及其子域名均有高优先级 `DIRECT` 规则、系统代理旁路和 `always-real-ip` 真实地址应答，并在 `[Host]` 中指定内网 DNS `10.1.3.1`：公网 DNS 会把 GitLab 解析到公网入口 IP，部分纯内网域名则返回 NXDOMAIN。根域名和通配子域名分别配置，避免漏匹配。外网时内网 DNS 不可达，这些域名解析可能超时；此配置适合公司网络或具有相应内网路由的环境。
 - 此文件独立维护；机场版、Clash 配置不会随此文件修改。更新基础规则时需分别检查适用范围。
 
-## 住宅出口开关（`出口` / `住宅`）
+## 住宅出口：`shadowrocket-residential.conf`
 
-`shadowrocket-oracle.conf` 在 `Fast` 之外新增两个组，用于临时把**全量出口**切到静态住宅 IP：
+```text
+https://raw.githubusercontent.com/luoruihuan/ron-proxy-rules/main/shadowrocket-residential.conf
+```
 
-| 组名 | 类型 | 成员 | 作用 |
-|---|---|---|---|
-| `出口` | `select` | `Fast`、`住宅` | 唯一被规则引用的策略；日常选 `Fast` |
-| `住宅` | `fallback` | 5 个虾蹬精选落地节点 + `Fast` | 选中后按顺序用第一个可用落地，全挂则回落到 `Fast` |
+与 `shadowrocket-oracle.conf` **规则完全一致**，唯一区别是代理流量出口固定走虾蹬精选静态住宅 IP：
 
-使用方式：首页点 `出口` → 选 `住宅` → 断开重连。需要具体哪个住宅 IP，就在 `住宅` 组的 fallback 顺序里调整（靠前的优先）。用完把 `出口` 切回 `Fast`。
+```
+住宅 = url-test, 静态38(RingSquared·斯普林菲尔德), 静态12(RingSquared·斯普林菲尔德),
+       url=https://www.gstatic.com/generate_204, interval=300, timeout=8, tolerance=100
+```
 
-前置关系：这 5 个落地节点各自的「代理通过」（`dialer-proxy`）已由虾蹬精选订阅写入自建节点，路径为 `设备 → 自建节点(过墙) → 静态住宅(落地) → 目标站`，出口是该住宅 IP。
+使用方法：日常用 `shadowrocket-oracle.conf`（出口走甲骨文自建节点）；需要“住宅家宽身份”时，在「配置」里切到本文件并断开重连，用完切回。国内与内网域名在本配置里依然 `DIRECT`，切过去不影响日常访问。
 
-维护要点：
+### 为什么不做「一个开关切全量」（实测结论）
 
-- 落地**全部不可用**时，`住宅` 自动回落到 `Fast`，不影响正常上网；
-- 精选集合变化（节点名带 IP，失效替换后会变）时，需同步 `住宅 = fallback, ...` 这一行的节点名；
-- 若小火箭不支持嵌套策略组（`出口` 引用 `住宅`），可临时把 `出口` 改成扁平列表：`出口 = select, Fast, <5 个落地节点名>`，代价是不再有自动回落。
+曾尝试在 oracle 配置里加 `出口 = select, Fast, 住宅, 静态38` 让规则指向 `出口`，实测在小火箭上不可行：
+
+| 尝试 | 实测结果 |
+|---|---|
+| `select` 组成员在 UI 里改选 `静态38` | 小火箭确实保存了 `policy-select-name=静态38`，但**路由仍按第一个成员 `Fast` 解析**，出口不变 |
+| `fallback` 组（5 个落地 + Fast 兜底） | 对这 5 个链式节点判活不准，被整体跳过，直接回落 `Fast` |
+| 规则里直接写节点名 | ✅ 生效：`DOMAIN,ipinfo.io,静态38` → 出口立刻变成该住宅 IP |
+| 规则指向 `url-test` 组（`Fast`） | ✅ 生效 |
+
+结论：**规则 → 具体节点名 或 url-test 组可靠；`select` / `fallback` 组在选择/判活上不可靠。** 因此改成「两份配置切换」，不依赖组内选择。
+
+### 边界与注意事项
+
+- 本配置只影响被代理的境外流量；`DIRECT` 规则（国内、公司内网、银行等）不受影响，住宅落地全挂时也照常能上国内网站。
+- `住宅` 用 `url-test` 在两个落地间自动故障转移；两个都挂时代理流量不可用，切回 `oracle` 配置即恢复。
+- `住宅` 组引用的节点名**带 IP**，精选集合变化（落地失效被备选替换）时需同步这一行，否则变成悬空引用。
+- 节点必须先订阅虾蹬精选（订阅地址见 `~/Desktop/xiadeng/README.md`），否则本配置里的两个节点名不存在。
 
 ## 桌面端 `clash-meta.yaml`（脱敏参考版）
 
