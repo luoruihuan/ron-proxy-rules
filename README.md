@@ -6,9 +6,9 @@ Shadowrocket 分流配置，与桌面 ClashX Meta 的规则保持同源。
 
 - `shadowrocket.conf` —— 机场多节点配置，Shadowrocket 可订阅自动更新
 - `shadowrocket-oracle.conf` —— 自建双节点自动择优配置，所有代理策略共用 `Fast` 的测试结果（**日常用这份**）
-- `shadowrocket-residential.conf` —— 与上一份规则相同，出口改为虾蹬静态住宅 IP（临时需要住宅身份时切换）
+- `shadowrocket-residential.conf` —— 与上一份规则相同，出口改为上游住宅服务商静态住宅 IP（临时需要住宅身份时切换）
 - `clash-meta.yaml` —— 桌面 ClashX Meta 的**脱敏参考版**，仅供查看/备份，不接自动更新（见下方说明）
-- `xiadeng-sub/` —— 静态住宅订阅精选服务（脱敏版）：定时巡检落地 IP、只输出前 N 个可用节点，并把 `dialer-proxy` 改写成自建前置；含飞书卡片告警。见该目录内 README
+- `residential-sub/` —— 静态住宅订阅精选服务（脱敏版）：定时巡检落地 IP、只输出前 N 个可用节点，并把 `dialer-proxy` 改写成自建前置；含飞书卡片告警。见该目录内 README
 
 **不包含**：节点信息、机场订阅链接、任何 token 或密钥。节点由机场订阅在 App 内单独提供，与本配置解耦。
 
@@ -38,7 +38,7 @@ https://raw.githubusercontent.com/luoruihuan/ron-proxy-rules/main/shadowrocket-o
 
 - 国内、公司内网指定域名直连；广告拦截；其他流量默认走 `出口` 组里的 `Fast` 自动择优节点，不再依赖首页选中的节点。
 - `出口` 是 `select`，成员为 `Fast` 和 `住宅`：日常用 `Fast`，需要“住宅家宽出口”时切到 `住宅`，用完切回。规则全部指向 `出口`，因此只改这一个组就能把全量出口切过去。
-- `住宅` 是 `fallback`，依次为 5 个虾蹬精选静态住宅节点，最后一项是 `Fast`：落地节点会依次尝试，**5 个全挂时自动回落到 `Fast`**，家宽/上游出问题不影响正常上网，无需人工切回。
+- `住宅` 是 `fallback`，依次为 5 个住宅精选静态节点节点，最后一项是 `Fast`：落地节点会依次尝试，**5 个全挂时自动回落到 `Fast`**，家宽/上游出问题不影响正常上网，无需人工切回。
 - `Fast` 使用 `url-test`，只测试上述四个节点（双机双协议，Hy2 优先承担流量，Reality 是 UDP QoS/阻断时的 TCP 兕底），测试地址为 `https://www.gstatic.com/generate_204`；每 300 秒按需重新测试，超时 5 秒，延迟改善超过 500ms 才切换；优先保持当前节点与出口 IP 稳定，而不是追逐小幅延迟改善。该阈值不保证固定 IP，节点不可用或重新连接时仍可能更换出口；main/backup 命名不代表择优优先级。
 - 只保留 `Fast`（`url-test`）；`url-test` 组是小火箭唯一的自动测速/故障转移机制，不能省：没有它只能手动切节点。节点改名时必须同步修改本文件；其他新增节点不会自动参加测试。
 - 住宅出口独立维护在 `shadowrocket-residential.conf`，版式与规则集与本文件完全一致，只在 `[Proxy Group]` 多一个 `住宅`（`url-test`，静态38 + 静态12）并把策略名换成 `住宅`。
@@ -55,7 +55,7 @@ https://raw.githubusercontent.com/luoruihuan/ron-proxy-rules/main/shadowrocket-o
 https://raw.githubusercontent.com/luoruihuan/ron-proxy-rules/main/shadowrocket-residential.conf
 ```
 
-与 `shadowrocket-oracle.conf` **规则完全一致**，唯一区别是代理流量出口固定走虾蹬精选静态住宅 IP：
+与 `shadowrocket-oracle.conf` **规则完全一致**，唯一区别是代理流量出口固定走住宅精选静态节点 IP：
 
 ```
 住宅 = url-test, 静态38(RingSquared·斯普林菲尔德), 静态12(RingSquared·斯普林菲尔德),
@@ -82,7 +82,7 @@ https://raw.githubusercontent.com/luoruihuan/ron-proxy-rules/main/shadowrocket-r
 - 本配置只影响被代理的境外流量；`DIRECT` 规则（国内、公司内网、银行等）不受影响，住宅落地全挂时也照常能上国内网站。
 - `住宅` 用 `url-test` 在两个落地间自动故障转移；两个都挂时代理流量不可用，切回 `oracle` 配置即恢复。
 - `住宅` 组引用的节点名**带 IP**，精选集合变化（落地失效被备选替换）时需同步这一行，否则变成悬空引用。
-- 节点必须先订阅虾蹬精选（订阅地址见 `~/Desktop/xiadeng/README.md`），否则本配置里的两个节点名不存在。
+- 节点必须先订阅住宅精选（订阅地址见 `~/Desktop/residential/README.md`），否则本配置里的两个节点名不存在。
 
 ## 桌面端 `clash-meta.yaml`（脱敏参考版）
 

@@ -1,10 +1,10 @@
-# 虾蹬精选订阅（VM 版）
+# 住宅精选订阅（VM 版）
 
-> 架构：`设备 → 小火箭 → Hy2-vm2-main（前置） → 虾蹬精选静态住宅（落地） → 目标网站`
+> 架构：`设备 → 小火箭 → Hy2-vm2-main（前置） → 住宅精选静态节点（落地） → 目标网站`
 > 服务位置：`ron-vm1`（<VM_IP>，Oracle Phoenix，系统级 systemd 常驻）
 
 > **本目录是脱敏版**：订阅地址 token、VM 公网 IP、Bright Data 账号密码均已替换为占位符。
-> 线上运行副本在 VM 上（`~/xiadeng/`），`config.json` 内含真实凭据，权限 `600`，**不入库**。
+> 线上运行副本在 VM 上（`~/residential/`），`config.json` 内含真实凭据，权限 `600`，**不入库**。
 
 ## 一、订阅地址
 
@@ -12,7 +12,7 @@
 http://<VM_IP>:8791/<PATH_TOKEN>/sub
 ```
 
-小火箭里把原来虾蹬那条订阅**换成这个地址**，更新一次即可。
+小火箭里把原来住宅那条订阅**换成这个地址**，更新一次即可。
 
 - 只输出 **5 个精选落地节点**（不是 46 个）
 - 每个节点的「代理通过」自动指向 `Hy2-vm2-main`
@@ -64,7 +64,7 @@ http://<VM_IP>:8791/<PATH_TOKEN>/sub
 
 备选：静态23 / 24 / 37 / 46 / 40（同档位，失效自动补位）
 
-## 四、上游虾蹬更新时我们要做什么
+## 四、上游住宅服务商更新时我们要做什么
 
 | 上游变化 | 我们要做什么 |
 |---|---|
@@ -73,7 +73,7 @@ http://<VM_IP>:8791/<PATH_TOKEN>/sub
 | `dialer-proxy` 的取值变化 | ✅ 不用做，我们忽略上游这个字段，直接写死 `Hy2-vm2-main` |
 | 新增城市 / 新编号 | ✅ 已自动纳入；想让它优先，把编号加进 `config.json` 的 `pool` / `tier` |
 | 节点被删除 | ✅ 自动重排 |
-| **订阅 URL / token 变更** | ⚠️ 改 `~/xiadeng/config.json` 的 `upstream` → `systemctl restart xiadeng-sub` |
+| **订阅 URL / token 变更** | ⚠️ 改 `~/residential/config.json` 的 `upstream` → `systemctl restart residential-sub` |
 | **yaml 结构大改（字段名/格式）** | ⚠️ 需改代码里的 `parse_statics`。信号：`/status` 里 `upstream_ok=false`，或日志出现「解析不到任何静态节点」 |
 
 ## 五、飞书卡片告警
@@ -103,15 +103,15 @@ ssh ron-vm1
 curl -s http://127.0.0.1:8791/<PATH_TOKEN>/status | python3 -m json.tool
 
 # 立即重排一次（清缓存后拉一次订阅即可触发）
-rm -f ~/xiadeng/state.json && systemctl restart xiadeng-sub
+rm -f ~/residential/state.json && systemctl restart residential-sub
 
 # 服务状态 / 日志
-systemctl status xiadeng-sub
-tail -f ~/xiadeng/service.log
+systemctl status residential-sub
+tail -f ~/residential/service.log
 
 # 改精选数量或候选池
-vim ~/xiadeng/config.json      # top_n / pool / tier / recheck_minutes
-systemctl restart xiadeng-sub
+vim ~/residential/config.json      # top_n / pool / tier / recheck_minutes
+systemctl restart residential-sub
 ```
 
 ## 七、日常使用建议（重要）
@@ -135,8 +135,8 @@ systemctl restart xiadeng-sub
 本机只剩**服务源码 + 本文档**，其余（本地转换服务、检测脚本、A/B 调试工具、配置备份、含凭据的临时文件）已全部移入垃圾桶：
 
 ```
-xiadeng-sub/README.md         本文档
-xiadeng-sub/xiadeng_sub.py VM 服务的源码备份（线上运行副本在 ron-vm1:~/xiadeng/）
+residential-sub/README.md         本文档
+residential-sub/residential_sub.py VM 服务的源码备份（线上运行副本在 ron-vm1:~/residential/）
 ```
 
 相关但独立保留的：
@@ -144,4 +144,4 @@ xiadeng-sub/xiadeng_sub.py VM 服务的源码备份（线上运行副本在 ron-
 - `~/Desktop/others/ron-proxy-rules` —— 你自己的小火箭配置仓库（oracle / residential 两份）
 - 小火箭节点库备份：`ServerManager.bak-20261106-175154`（在 App Group Container 内，46 节点全绑 Hy2 的那一版）
 
-**不要再放回本机的**：任何包含虾蹬订阅 token、Bright Data 账号密码、或服务 `config.json` 的文件。线上那份 `config.json` 权限是 `600`。
+**不要再放回本机的**：任何包含住宅订阅 token、Bright Data 账号密码、或服务 `config.json` 的文件。线上那份 `config.json` 权限是 `600`。

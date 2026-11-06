@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""虾蹬精选订阅服务（VM 版 v2）
+"""住宅精选订阅服务（VM 版 v2）
 
 职责：
   1. 定时巡检候选落地 IP，只输出「稳定的前 N 个」
@@ -398,10 +398,10 @@ def maybe_alert(cfg, state, force=False):
     pool = state.get('candidates') or []
     top = ' · '.join(f"{r['num']}({r['speed_kbps']}KB/s)"
                      for r in ranking if r['picked']) or '无'
-    footer = f"虾蹬精选订阅 · ron-vm1 · {time.strftime('%Y-%m-%d %H:%M')}"
+    footer = f"住宅精选订阅 · ron-vm1 · {time.strftime('%Y-%m-%d %H:%M')}"
 
     if status == 'ok':
-        payload = alert_card('✅ 虾蹬精选订阅 · 已恢复', 'green',
+        payload = alert_card('✅ 住宅精选订阅 · 已恢复', 'green',
                              [('主体', 'ron-vm1 精选服务'),
                               ('入选', f'{len(sel)} 个'),
                               ('候选池', f'{len(pool)} 个'),
@@ -409,7 +409,7 @@ def maybe_alert(cfg, state, force=False):
                              f'当前入选：{top}', footer)
     else:
         tpl = 'red' if status == 'error' else 'orange'
-        head = '❌ 虾蹬精选订阅 · 故障' if status == 'error' else '⚠️ 虾蹬精选订阅 · 异常'
+        head = '❌ 住宅精选订阅 · 故障' if status == 'error' else '⚠️ 住宅精选订阅 · 异常'
         detail = [f'**原因**\n{reason}', f'**当前入选**\n{top}']
         bad = state.get('dead') or []
         if bad:
@@ -546,12 +546,12 @@ def background(cfg, state):
 
 def self_test_alert(cfg, state):
     """发送一张测试卡片，验证 webhook 通路"""
-    payload = alert_card('🧪 虾蹬精选订阅 · 测试消息', 'blue',
+    payload = alert_card('🧪 住宅精选订阅 · 测试消息', 'blue',
                          [('主体', 'ron-vm1 精选服务'), ('状态', '告警通道正常'),
                           ('入选', f"{len(state.get('selected') or [])} 个"),
                           ('巡检时间', state.get('updated_at', '-'))],
                          '这是一条测试通知。以后只有出现异常或恢复时才会自动推送。',
-                         f"虾蹬精选订阅 · ron-vm1 · {time.strftime('%Y-%m-%d %H:%M')}")
+                         f"住宅精选订阅 · ron-vm1 · {time.strftime('%Y-%m-%d %H:%M')}")
     ok, msg = feishu_send(cfg, payload)
     print(('✅ 推送成功' if ok else '❌ 推送失败'), msg)
     return ok
