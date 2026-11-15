@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""住宅精选订阅服务（VM 版 v2）
+"""家宽机场服务（VM 版 v2）
 
 职责：
   1. 定时巡检候选落地 IP，只输出「稳定的前 N 个」
@@ -151,6 +151,15 @@ def parse_statics(yaml_text):
 def node_ip(node):
     m = re.search(r'ip-(\d+\.\d+\.\d+\.\d+)', node['username'])
     return m.group(1) if m else ''
+
+
+def node_label(num, name=''):
+    """推送展示名：优先上游全名（带地区，如 US-静态38「斯普林菲尔德」），去掉末尾 IP"""
+    if name:
+        label = re.sub(r'\s+\d+\.\d+\.\d+\.\d+\s*$', '', str(name)).strip()
+        if label:
+            return label
+    return num
 
 
 # ---------------------------------------------------------------- 探测
@@ -305,14 +314,15 @@ def rank(cfg, nodes, state):
 
     state['selected'] = selected
     state['ranking'] = [
-        {'num': s['num'], 'tier': s['tier'], 'score': s['score'],
+        {'num': s['num'], 'name': nodes[s['num']]['name'],
+         'tier': s['tier'], 'score': s['score'],
          'isp': s['risk'].get('isp') or s['risk'].get('as') or '',
          'speed_kbps': round(s['speed'] / 1024),
          'ttfb_ms': round(s['ttfb'] * 1000),
          'speed_age_min': s['speed_age_min'],
          'picked': s['num'] in selected}
         for s in scored]
-    state['dead'] = [{'num': n, 'reason': live[n]['reason']}
+    state['dead'] = [{'num': n, 'name': nodes[n]['name'], 'reason': live[n]['reason']}
                      for n in candidates if not live[n]['ok']]
     state['candidates'] = candidates
     state['updated_at'] = time.strftime('%Y-%m-%d %H:%M:%S')
@@ -375,7 +385,9 @@ def evaluate_status(cfg, state):
     if len(sel) < cfg['top_n']:
         return 'warn', f'入选只有 {len(sel)} 个，不足 {cfg["top_n"]} 个'
     if dead_sel:
-        return 'warn', '入选节点探测失败: ' + ', '.join(dead_sel)
+        names = {d['num']: d.get('name') for d in (state.get('dead') or [])}
+        return 'warn', '入选节点探测失败: ' + ', '.join(
+            node_label(n, names.get(n)) for n in dead_sel)
     return 'ok', ''
 
 
@@ -396,12 +408,12 @@ def maybe_alert(cfg, state, force=False):
     sel = state.get('selected') or []
     ranking = state.get('ranking') or []
     pool = state.get('candidates') or []
-    top = ' · '.join(f"{r['num']}({r['speed_kbps']}KB/s)"
+    top = ' · '.join(f"{node_label(r['num'], r.get('name'))}({r['speed_kbps']}KB/s)"
                      for r in ranking if r['picked']) or '无'
-    footer = f"住宅精选订阅 · ron-vm1 · {time.strftime('%Y-%m-%d %H:%M')}"
+    footer = f"家宽机场 · ron-vm1 · {time.strftime('%Y-%m-%d %H:%M')}"
 
     if status == 'ok':
-        payload = alert_card('✅ 住宅精选订阅 · 已恢复', 'green',
+        payload = alert_card('✅ 家宽机场 · 已恢复', 'green',
                              [('主体', 'ron-vm1 精选服务'),
                               ('入选', f'{len(sel)} 个'),
                               ('候选池', f'{len(pool)} 个'),
@@ -409,12 +421,12 @@ def maybe_alert(cfg, state, force=False):
                              f'当前入选：{top}', footer)
     else:
         tpl = 'red' if status == 'error' else 'orange'
-        head = '❌ 住宅精选订阅 · 故障' if status == 'error' else '⚠️ 住宅精选订阅 · 异常'
+        head = '❌ 家宽机场 · 故障' if status == 'error' else '⚠️ 家宽机场 · 异常'
         detail = [f'**原因**\n{reason}', f'**当前入选**\n{top}']
         bad = state.get('dead') or []
         if bad:
             detail.append('**探测失败**\n' + '\n'.join(
-                f"- {d['num']}：{d['reason']}" for d in bad[:6]))
+                f"- {node_label(d['num'], d.get('name'))}：{d['reason']}" for d in bad[:6]))
         payload = alert_card(head, tpl,
                              [('主体', 'ron-vm1 精选服务'),
                               ('入选', f'{len(sel)}/{cfg["top_n"]}'),
@@ -432,11 +444,14 @@ def maybe_alert(cfg, state, force=False):
 
 # ---------------------------------------------------------------- 输出
 def build_yaml(cfg, nodes, selected):
-    """只输出 proxies 段：不带 groups / rules，避免影响客户端原有分流"""
+    """只输出 proxies 段：不带 groups / rules，避免影响客户端原有分流。
+    节点名固定为 US-住宅精选1..N（按 selected 顺序）：名字与底层 IP 解耦，
+    上游轮换/补位后客户端（小火箭 url-test 组）引用永不悬空。
+    落地 IP 在节点 username（ip-x.x.x.x）与 /status 的 selected 顺序中可查。"""
     lines = ['proxies:']
-    for num in selected:
+    for i, num in enumerate(selected, 1):
         n = nodes[num]
-        lines += [f"- name: {n['name']}",
+        lines += [f"- name: US-住宅精选{i}",
                   f"  type: {n['type']}",
                   f"  server: {n['server']}",
                   f"  port: {n['port']}",
@@ -546,12 +561,12 @@ def background(cfg, state):
 
 def self_test_alert(cfg, state):
     """发送一张测试卡片，验证 webhook 通路"""
-    payload = alert_card('🧪 住宅精选订阅 · 测试消息', 'blue',
+    payload = alert_card('🧪 家宽机场 · 测试消息', 'blue',
                          [('主体', 'ron-vm1 精选服务'), ('状态', '告警通道正常'),
                           ('入选', f"{len(state.get('selected') or [])} 个"),
                           ('巡检时间', state.get('updated_at', '-'))],
                          '这是一条测试通知。以后只有出现异常或恢复时才会自动推送。',
-                         f"住宅精选订阅 · ron-vm1 · {time.strftime('%Y-%m-%d %H:%M')}")
+                         f"家宽机场 · ron-vm1 · {time.strftime('%Y-%m-%d %H:%M')}")
     ok, msg = feishu_send(cfg, payload)
     print(('✅ 推送成功' if ok else '❌ 推送失败'), msg)
     return ok

@@ -58,9 +58,12 @@ https://raw.githubusercontent.com/luoruihuan/ron-proxy-rules/main/shadowrocket-r
 与 `shadowrocket-oracle.conf` **规则完全一致**，唯一区别是代理流量出口固定走住宅精选静态节点 IP：
 
 ```
-住宅 = url-test, 静态38(RingSquared·斯普林菲尔德), 静态12(RingSquared·斯普林菲尔德),
+住宅 = url-test, US-住宅精选1, US-住宅精选2, US-住宅精选3, US-住宅精选4, US-住宅精选5,
        url=https://www.gstatic.com/generate_204, interval=300, timeout=8, tolerance=100
 ```
+
+节点名为稳定序号（由 ron-vm1 订阅服务生成，与底层 IP 解耦）：上游轮换/补位时序号不变，
+客户��分组引用永不悬空；当前落地 IP 见节点详情（username 内 `ip-x.x.x.x`）或服务 `/status`。
 
 使用方法：日常用 `shadowrocket-oracle.conf`（出口走甲骨文自建节点）；需要“住宅家宽身份”时，在「配置」里切到本文件并断开重连，用完切回。国内与内网域名在本配置里依然 `DIRECT`，切过去不影响日常访问。
 
@@ -81,7 +84,7 @@ https://raw.githubusercontent.com/luoruihuan/ron-proxy-rules/main/shadowrocket-r
 
 - 本配置只影响被代理的境外流量；`DIRECT` 规则（国内、公司内网、银行等）不受影响，住宅落地全挂时也照常能上国内网站。
 - `住宅` 用 `url-test` 在两个落地间自动故障转移；两个都挂时代理流量不可用，切回 `oracle` 配置即恢复。
-- `住宅` 组引用的节点名**带 IP**，精选集合变化（落地失效被备选替换）时需同步这一行，否则变成悬空引用。
+- `住宅` 组引用的节点名为稳定序号（`US-住宅精选1..5`，2026-11-15 起），订阅轮换/补位不改变名字，本行无需再同步。（旧版名字带编号+IP，轮换即悬空，2026-11-14 实际发生过，已废除。）
 - 节点必须先订阅住宅精选（订阅地址见 `~/Desktop/residential/README.md`），否则本配置里的两个节点名不存在。
 
 ## 桌面端 `clash-meta.yaml`（脱敏参考版）
