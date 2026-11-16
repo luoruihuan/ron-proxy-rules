@@ -231,6 +231,8 @@ rules:
   - DOMAIN-SUFFIX,gaia34learning.com,DIRECT
   # 公司演示环境域名（Cloudflare 公网托管）
   - DOMAIN-SUFFIX,gaiademo.online,DIRECT
+  # 公司演示环境服务器公网 IP（Azure），整 IP 全部直连
+  - IP-CIDR,20.198.184.165/32,DIRECT
   - DOMAIN,localhost,DIRECT
   - DOMAIN,gaiaworks.cn,DIRECT
   - DOMAIN,gaia34learning.com,DIRECT
