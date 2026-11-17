@@ -53,6 +53,11 @@ DEFAULTS = {
         "静态24": 2, "静态37": 2, "静态40": 2, "静态46": 2,
     },
     "risk_cache_hours": 6,
+    # 落地国家白名单（ip-api countryCode，空=不过滤）。非白名单国家一律排除。
+    "country_filter": ["US", "GB", "JP", "SG", "HK", "IN", "TR"],
+    # 每国输出槽位：名字 = 国家码-住宅精选N，槽位只放对应国家节点，轮换不悬空。
+    # "*" 为未单独配置国家的默认槽数；US 保持 5 个与 conf 住宅组员一致。
+    "country_slots": {"US": 5, "*": 2},
     # 存活探测间隔（轻量，几乎不耗流量）
     "recheck_minutes": 30,
     # 全量测速间隔（较耗流量，别调太小）
@@ -208,7 +213,7 @@ def risk_lookup(node):
         return {}
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     try:
-        u = f'http://ip-api.com/json/{ip}?fields=status,isp,org,as,proxy,hosting,mobile'
+        u = f'http://ip-api.com/json/{ip}?fields=status,countryCode,isp,org,as,proxy,hosting,mobile'
         with opener.open(u, timeout=10) as r:
             d = json.loads(r.read().decode())
         return d if d.get('status') == 'success' else {}
@@ -256,7 +261,7 @@ def rank(cfg, nodes, state):
     if not candidates:
         return []
 
-    prev = [n for n in state.get('selected', []) if n in nodes]
+    prev_by_cc = state.get('selected_by_country') or {}
 
     # 1) 轻量存活探测
     with ThreadPoolExecutor(max_workers=8) as ex:
@@ -288,6 +293,13 @@ def rank(cfg, nodes, state):
                 'hosting': bool(risk.get('hosting')), 'proxy': bool(risk.get('proxy')),
                 'isp': risk.get('isp') or risk.get('as') or ''}
             continue
+        allowed = [c.upper() for c in (cfg.get('country_filter') or [])]
+        cc = (risk.get('countryCode') or '').upper()
+        # 画像缓存里暂无 countryCode 的不拦（旧缓存过期后自然补上）
+        if allowed and cc and cc not in allowed:
+            state.setdefault('excluded_flag', {})[num] = {
+                'country': cc, 'isp': risk.get('isp') or risk.get('as') or ''}
+            continue
         tier = tier_of(cfg, num, risk)
         sp = scache.get(num, {})
         speed = sp.get('speed', 0) or 0
@@ -304,17 +316,43 @@ def rank(cfg, nodes, state):
     scored.sort(key=lambda x: -x['score'])
     by_num = {s['num']: s for s in scored}
 
-    # 5) 稳定优先：老名单活着就不换，缺口再补
-    selected = [n for n in prev if n in by_num][:cfg['top_n']]
+    # 5) 按国家分槽，稳定优先：槽位只放对应国家节点（名字=国家码-住宅精选N），
+    #    老名单活着就不换，缺口在同国内按分数补；同国轮换不悬空，名字国旗永远一致
+    slots = cfg.get('country_slots') or {}
+
+    def slot_count(cc):
+        return int(slots.get(cc, slots.get('*', 0)))
+
+    by_country = {}
     for s in scored:
-        if len(selected) >= cfg['top_n']:
-            break
-        if s['num'] not in selected:
-            selected.append(s['num'])
+        cc = (s['risk'].get('countryCode') or '').upper()
+        if cc:
+            by_country.setdefault(cc, []).append(s['num'])
+
+    order = list(cfg.get('country_filter') or [])
+    ccs = order + [c for c in sorted(by_country) if c not in order]
+    selected_by_country = {}
+    for cc in ccs:
+        cands = by_country.get(cc) or []
+        if not cands or slot_count(cc) <= 0:
+            continue
+        n_slots = slot_count(cc)
+        sel = [n for n in (prev_by_cc.get(cc) or []) if n in cands][:n_slots]
+        for n in cands:
+            if len(sel) >= n_slots:
+                break
+            if n not in sel:
+                sel.append(n)
+        if sel:
+            selected_by_country[cc] = sel
+
+    selected = [n for cc in selected_by_country for n in selected_by_country[cc]]
 
     state['selected'] = selected
+    state['selected_by_country'] = selected_by_country
     state['ranking'] = [
         {'num': s['num'], 'name': nodes[s['num']]['name'],
+         'country': (s['risk'].get('countryCode') or '').upper(),
          'tier': s['tier'], 'score': s['score'],
          'isp': s['risk'].get('isp') or s['risk'].get('as') or '',
          'speed_kbps': round(s['speed'] / 1024),
@@ -326,7 +364,7 @@ def rank(cfg, nodes, state):
                      for n in candidates if not live[n]['ok']]
     state['candidates'] = candidates
     state['updated_at'] = time.strftime('%Y-%m-%d %H:%M:%S')
-    return selected
+    return selected_by_country
 
 
 # ---------------------------------------------------------------- 飞书告警
@@ -382,8 +420,10 @@ def evaluate_status(cfg, state):
         return 'ok', ''
     if not sel:
         return 'error', '没有可用落地节点'
-    if len(sel) < cfg['top_n']:
-        return 'warn', f'入选只有 {len(sel)} 个，不足 {cfg["top_n"]} 个'
+    us = (state.get('selected_by_country') or {}).get('US') or []
+    us_expect = int((cfg.get('country_slots') or {}).get('US', cfg.get('top_n', 5)))
+    if len(us) < us_expect:
+        return 'warn', f'美国槽只有 {len(us)}/{us_expect} 个（上游供给不足）'
     if dead_sel:
         names = {d['num']: d.get('name') for d in (state.get('dead') or [])}
         return 'warn', '入选节点探测失败: ' + ', '.join(
@@ -443,17 +483,18 @@ def maybe_alert(cfg, state, force=False):
 
 
 # ---------------------------------------------------------------- 输出
-def build_yaml(cfg, nodes, selected):
+def build_yaml(cfg, nodes, selected_by_country):
     """只输出 proxies 段：不带 groups / rules，避免影响客户端原有分流。
-    节点名固定为 US-住宅精选1..N（按 selected 顺序）：名字与底层 IP 解耦，
-    上游轮换/补位后客户端（小火箭 url-test 组）引用永不悬空。
-    落地 IP 在节点 username（ip-x.x.x.x）与 /status 的 selected 顺序中可查。"""
+    节点名 = 国家码-住宅精选N（按 selected_by_country 各国顺序）：槽位只放对应
+    国家节点，上游轮换/补位后名字不变，客户端（小火箭 url-test 组）引用永不悬空。
+    落地 IP 在节点 username（ip-x.x.x.x）与 /status 中可查。"""
     lines = ['proxies:']
-    for i, num in enumerate(selected, 1):
-        n = nodes[num]
-        lines += [f"- name: US-住宅精选{i}",
-                  f"  type: {n['type']}",
-                  f"  server: {n['server']}",
+    for cc, nums in (selected_by_country or {}).items():
+        for i, num in enumerate(nums, 1):
+            n = nodes[num]
+            lines += [f"- name: {cc}-住宅精选{i}",
+                      f"  type: {n['type']}",
+                      f"  server: {n['server']}",
                   f"  port: {n['port']}",
                   f"  username: {n['username']}",
                   f"  password: {n['password']}",
@@ -502,15 +543,18 @@ class Handler(BaseHTTPRequestHandler):
                 raise RuntimeError('上游 yaml 结构变了，解析不到任何静态节点')
 
             with self.lock:
-                selected = self.state.get('selected') or []
-                if not selected or any(n not in nodes for n in selected):
-                    selected = rank(self.cfg, nodes, self.state)
+                sel_bc = self.state.get('selected_by_country') or {}
+                all_sel = [n for v in sel_bc.values() for n in v]
+                if not all_sel or any(n not in nodes for n in all_sel):
+                    rank(self.cfg, nodes, self.state)
                 save_json(STATE_PATH, self.state)
 
-            if not selected:
+            all_sel = [n for v in (self.state.get('selected_by_country') or {}).values()
+                       for n in v]
+            if not all_sel:
                 raise RuntimeError('没有可用落地节点（全部探测失败或全部被标记）')
 
-            yaml_text = build_yaml(self.cfg, nodes, selected)
+            yaml_text = build_yaml(self.cfg, nodes, self.state['selected_by_country'])
             with open(LAST_GOOD, 'w', encoding='utf-8') as f:
                 f.write(yaml_text)
             self._send(200, 'text/yaml; charset=utf-8', yaml_text.encode())
