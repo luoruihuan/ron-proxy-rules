@@ -546,21 +546,17 @@ def flag_emoji(cc):
 
 def build_yaml(cfg, nodes, selected, countries=None):
     """只输出 proxies 段：不带 groups / rules，避免影响客户端原有分流。
-    槽位：第 1 位固定美国（US-住宅精选1，AI 服务主用区保底），第 2-5 位为全球槽
+    槽位：第 1 位固定美国（住宅精选1，AI 服务主用区保底），第 2-5 位为全球槽
     （住宅精选2-5，按纯净度/可用度择优，不限国家）。名字与国家/IP 解耦，
     上游轮换/补位后名字不变，客户端引用永不悬空；落地 IP 见 username 与 /status。
-    每个全球槽额外输出一个镜像节点（名字带国旗 emoji，如「住宅精选2 🇯🇵」），
+    每个槽额外输出一个镜像节点（名字带国旗 emoji，如「住宅精选2 🇯🇵」），
     仅用于在小火箭列表里看到槽位真实国家，不被 conf 引用，国家变化时自动更名。"""
     lines = ['proxies:']
     countries = countries or []
     for i, num in enumerate(selected, 1):
         n = nodes[num]
-        entries = []
-        if i == 1:
-            entries.append('US-住宅精选1')
-        else:
-            entries.append(f'住宅精选{i}')
-            entries.append(f'住宅精选{i} {flag_emoji(countries[i-1] if i-1 < len(countries) else "")}')
+        entries = [f'住宅精选{i}',
+                   f'住宅精选{i} {flag_emoji(countries[i-1] if i-1 < len(countries) else "")}']
         for name in entries:
             lines += [f"- name: {name}",
                       f"  type: {n['type']}",
