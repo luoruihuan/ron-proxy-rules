@@ -364,42 +364,42 @@ def rank(cfg, nodes, state):
                        'speed_age_min': round((now - sp.get('ts', 0)) / 60) if sp else None})
 
     scored.sort(key=lambda x: -x['score'])
+
+    # 5) 全球 Top5 + 美国保位：老名单存活保留（防 IP 跳动触发风控），缺口按分数补；
+    #    若入选无美国，末位换成最好的美国（美国是 AI 服务主用区，必须保底）；
+    #    美国槽提到第 1 位（输出名 US-住宅精选1），其余为全球槽（住宅精选2-5）
+    top_n = int(cfg.get('top_n', 5))
     by_num = {s['num']: s for s in scored}
 
-    # 5) 按国家分槽，稳定优先：槽位只放对应国家节点（名字=国家码-住宅精选N），
-    #    老名单活着就不换，缺口在同国内按分数补；同国轮换不悬空，名字国旗永远一致
-    slots = cfg.get('country_slots') or {}
+    def is_us(n):
+        r = by_num.get(n, {}).get('risk') or {}
+        return (r.get('countryCode') or '').upper() == 'US'
 
-    def slot_count(cc):
-        return int(slots.get(cc, slots.get('*', 0)))
-
-    by_country = {}
+    prev = state.get('selected') or []
+    selected = [n for n in prev if n in by_num][:top_n]
     for s in scored:
-        cc = (s['risk'].get('countryCode') or '').upper()
-        if cc:
-            by_country.setdefault(cc, []).append(s['num'])
-
-    order = list(cfg.get('country_filter') or [])
-    ccs = order + [c for c in sorted(by_country) if c not in order]
-    selected_by_country = {}
-    for cc in ccs:
-        cands = by_country.get(cc) or []
-        if not cands or slot_count(cc) <= 0:
-            continue
-        n_slots = slot_count(cc)
-        sel = [n for n in (prev_by_cc.get(cc) or []) if n in cands][:n_slots]
-        for n in cands:
-            if len(sel) >= n_slots:
-                break
-            if n not in sel:
-                sel.append(n)
-        if sel:
-            selected_by_country[cc] = sel
-
-    selected = [n for cc in selected_by_country for n in selected_by_country[cc]]
+        if len(selected) >= top_n:
+            break
+        if s['num'] not in selected:
+            selected.append(s['num'])
+    if selected and not any(is_us(n) for n in selected):
+        us_best = next((s['num'] for s in scored if is_us(s['num'])), None)
+        if us_best:
+            if len(selected) >= top_n:
+                selected[-1] = us_best
+            else:
+                selected.append(us_best)
+    if selected:
+        us_first = next((n for n in selected if is_us(n)), None)
+        if us_first:
+            selected = [us_first] + [n for n in selected if n != us_first]
 
     state['selected'] = selected
-    state['selected_by_country'] = selected_by_country
+    by_country = {}
+    for n in selected:
+        cc = (by_num.get(n, {}).get('risk') or {}).get('countryCode') or '??'
+        by_country.setdefault(str(cc).upper(), []).append(n)
+    state['selected_by_country'] = by_country
     state['ranking'] = [
         {'num': s['num'], 'name': nodes[s['num']]['name'],
          'country': (s['risk'].get('countryCode') or '').upper(),
@@ -414,7 +414,7 @@ def rank(cfg, nodes, state):
                      for n in candidates if not live[n]['ok']]
     state['candidates'] = candidates
     state['updated_at'] = time.strftime('%Y-%m-%d %H:%M:%S')
-    return selected_by_country
+    return selected
 
 
 # ---------------------------------------------------------------- 飞书告警
@@ -470,10 +470,8 @@ def evaluate_status(cfg, state):
         return 'ok', ''
     if not sel:
         return 'error', '没有可用落地节点'
-    us = (state.get('selected_by_country') or {}).get('US') or []
-    us_expect = int((cfg.get('country_slots') or {}).get('US', cfg.get('top_n', 5)))
-    if len(us) < us_expect:
-        return 'warn', f'美国槽只有 {len(us)}/{us_expect} 个（上游供给不足）'
+    if len(sel) < int(cfg.get('top_n', 5)):
+        return 'warn', f'入选只有 {len(sel)} 个，不足 {cfg.get("top_n", 5)} 个'
     if dead_sel:
         names = {d['num']: d.get('name') for d in (state.get('dead') or [])}
         return 'warn', '入选节点探测失败: ' + ', '.join(
@@ -533,18 +531,18 @@ def maybe_alert(cfg, state, force=False):
 
 
 # ---------------------------------------------------------------- 输出
-def build_yaml(cfg, nodes, selected_by_country):
+def build_yaml(cfg, nodes, selected):
     """只输出 proxies 段：不带 groups / rules，避免影响客户端原有分流。
-    节点名 = 国家码-住宅精选N（按 selected_by_country 各国顺序）：槽位只放对应
-    国家节点，上游轮换/补位后名字不变，客户端（小火箭 url-test 组）引用永不悬空。
-    落地 IP 在节点 username（ip-x.x.x.x）与 /status 中可查。"""
+    槽位：第 1 位固定美国（US-住宅精选1，AI 服务主用区保底），第 2-5 位为全球槽
+    （住宅精选2-5，按纯净度/可用度择优，不限国家）。名字与国家/IP 解耦，
+    上游轮换/补位后名字不变，客户端引用永不悬空。落地 IP 见 username 与 /status。"""
     lines = ['proxies:']
-    for cc, nums in (selected_by_country or {}).items():
-        for i, num in enumerate(nums, 1):
-            n = nodes[num]
-            lines += [f"- name: {cc}-住宅精选{i}",
-                      f"  type: {n['type']}",
-                      f"  server: {n['server']}",
+    for i, num in enumerate(selected, 1):
+        n = nodes[num]
+        name = 'US-住宅精选1' if i == 1 else f'住宅精选{i}'
+        lines += [f"- name: {name}",
+                  f"  type: {n['type']}",
+                  f"  server: {n['server']}",
                   f"  port: {n['port']}",
                   f"  username: {n['username']}",
                   f"  password: {n['password']}",
@@ -593,18 +591,16 @@ class Handler(BaseHTTPRequestHandler):
                 raise RuntimeError('上游 yaml 结构变了，解析不到任何静态节点')
 
             with self.lock:
-                sel_bc = self.state.get('selected_by_country') or {}
-                all_sel = [n for v in sel_bc.values() for n in v]
-                if not all_sel or any(n not in nodes for n in all_sel):
+                selected = self.state.get('selected') or []
+                if not selected or any(n not in nodes for n in selected):
                     rank(self.cfg, nodes, self.state)
                 save_json(STATE_PATH, self.state)
 
-            all_sel = [n for v in (self.state.get('selected_by_country') or {}).values()
-                       for n in v]
-            if not all_sel:
+            selected = self.state.get('selected') or []
+            if not selected:
                 raise RuntimeError('没有可用落地节点（全部探测失败或全部被标记）')
 
-            yaml_text = build_yaml(self.cfg, nodes, self.state['selected_by_country'])
+            yaml_text = build_yaml(self.cfg, nodes, selected)
             with open(LAST_GOOD, 'w', encoding='utf-8') as f:
                 f.write(yaml_text)
             self._send(200, 'text/yaml; charset=utf-8', yaml_text.encode())

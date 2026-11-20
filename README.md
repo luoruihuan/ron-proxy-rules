@@ -58,11 +58,11 @@ https://raw.githubusercontent.com/luoruihuan/ron-proxy-rules/main/shadowrocket-r
 与 `shadowrocket-oracle.conf` **规则完全一致**，唯一区别是代理流量出口固定走住宅精选静态节点 IP：
 
 ```
-住宅 = url-test, US-住宅精选1, US-住宅精选2, US-住宅精选3, US-住宅精选4, US-住宅精选5,
+住宅 = url-test, US-住宅精选1, 住宅精选2, 住宅精选3, 住宅精选4, 住宅精选5,
        url=https://www.gstatic.com/generate_204, interval=300, timeout=8, tolerance=100
 ```
 
-节点名为稳定序号（由 ron-vm1 订阅服务生成，与底层 IP 解耦）：上游轮换/补位时序号不变，
+槽位：第 1 位固定美国（AI 服务主用区保底），第 2-5 位为全球槽按纯净度/可用度择优（2026-11-20 起）。节点名与国家/IP 解耦：上游轮换/补位时序号不变，
 客户��分组引用永不悬空；当前落地 IP 见节点详情（username 内 `ip-x.x.x.x`）或服务 `/status`。
 
 使用方法：日常用 `shadowrocket-oracle.conf`（出口走甲骨文自建节点）；需要“住宅家宽身份”时，在「配置」里切到本文件并断开重连，用完切回。国内与内网域名在本配置里依然 `DIRECT`，切过去不影响日常访问。
