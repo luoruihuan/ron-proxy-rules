@@ -36,7 +36,7 @@ http://<VM_IP>:8791/<PATH_TOKEN>/sub
 |---|---|
 | 只挑可用的 | 每 30 分钟做轻量存活探测（~1KB，几乎不耗流量）；全量测速每 12 小时一次，只测前 8 个候选 |
 | 只选白名单国家 | `country_filter`（ip-api countryCode）默认 `US/GB/JP/SG/HK/IN/TR` 七国，其余（如沙特/瑞典/法国）一律排除；`country_slots` 按国家分槽（US:5，其他:2），槽位只放对应国家节点，名字=国家码-住宅精选N，轮换不悬空、国旗永远与实际一致（2026-11-15 起） |
-| 没被标识 | 查公开库，`hosting=true` 或 `proxy=true` 的 IP 一律排除（实测已踢掉静态04 和 18） |
+| 没被标识 | 双源交叉：ip-api（hosting/proxy）+ ipinfo Lite API（ASN/国家，token 在 config.json `ipinfo_token`，免费层 API 无 privacy 字段）+ ASN 黑名单一票否决（`blacklist_asn`：WS Telecom / Ace Data / Latitude.sh / M247，2026-11-20 起）。实测 WS Telecom 段 22 个候选全灭 |
 | 住宅性优先 | 自动分档：`RingSquared`→1档、`RCN`→2档、其他→3档；档位权重高于速度 |
 | 人少 | 做不到精确（Bright Data 不公开并发用户数），用“拥堵度（实测速度/首字节）+ 避开热门编号”近似 |
 | 上游新增节点 | 需把编号加进 `config.json` 的 `pool` 才参与巡检（候选池 = pool + 6 个自动补充；2026-11-17 已含 GB/JP/IN/SG 相关编号），按 ASN 自动定档。上游新增同国新编号仍需手动入池 |

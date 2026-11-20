@@ -53,6 +53,9 @@ DEFAULTS = {
         "静态24": 2, "静态37": 2, "静态40": 2, "静态46": 2,
     },
     "risk_cache_hours": 6,
+    # ipinfo.io Lite API token（https://ipinfo.io/account/token）：双源交叉判定纯净度，
+    # 留空则只用 ip-api（行为与旧版一致）。免费层 50k 请求/月，远够巡检用量。
+    "ipinfo_token": "",
     # 落地国家白名单（ip-api countryCode，空=不过滤）。非白名单国家一律排除。
     "country_filter": ["US", "GB", "JP", "SG", "HK", "IN", "TR"],
     # 每国输出槽位：名字 = 国家码-住宅精选N，槽位只放对应国家节点，轮换不悬空。
@@ -221,6 +224,46 @@ def risk_lookup(node):
         return {}
 
 
+def ipinfo_lookup(ip, cfg):
+    """ipinfo Lite：asn.type(isp/hosting) + privacy(vpn/proxy/tor/relay/abuser)，比 ip-api 准；
+    失败/未配 token 返回 {}，不影响主流程"""
+    token = cfg.get('ipinfo_token') or ''
+    if not token or not ip:
+        return {}
+    try:
+        u = f'https://api.ipinfo.io/lite/{ip}?token={token}'
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        with opener.open(u, timeout=10) as r:
+            return json.loads(r.read().decode())
+    except Exception:
+        return {}
+
+
+def merged_risk(node, cfg):
+    """双源合并：任一源标机房/代理/VPN 即排除；abuser 仅记录不排除（避免误杀）
+    注：lite 端点的 asn/company 可能是字符串（免费层）或对象（付费层），均做容错"""
+    base = risk_lookup(node)
+    lite = ipinfo_lookup(node_ip(node), cfg)
+    if not lite:
+        return base
+    merged = dict(base)
+    priv = lite.get('privacy') or {}
+    asn_raw = lite.get('asn')
+    asn = asn_raw if isinstance(asn_raw, dict) else {}
+    comp_raw = lite.get('company')
+    comp = comp_raw if isinstance(comp_raw, dict) else {}
+    if lite.get('country_code'):
+        merged.setdefault('countryCode', lite['country_code'])
+    if lite.get('as_name'):
+        merged.setdefault('as', f"{asn_raw or ''} {lite['as_name']}".strip())
+    merged['hosting'] = bool(base.get('hosting') or priv.get('hosting')
+                             or asn.get('type') == 'hosting' or comp.get('type') == 'hosting')
+    merged['proxy'] = bool(base.get('proxy') or priv.get('proxy') or priv.get('vpn'))
+    merged['abuser'] = bool(priv.get('abuser'))
+    merged['ipinfo_type'] = asn.get('type') or comp.get('type') or ''
+    return merged
+
+
 def refresh_risk(cfg, nodes, nums, state):
     cache = state.get('risk') or {}
     now = time.time()
@@ -233,7 +276,7 @@ def refresh_risk(cfg, nodes, nums, state):
             stale.append(num)
     if stale:
         with ThreadPoolExecutor(max_workers=4) as ex:
-            got = dict(zip(stale, ex.map(lambda k: risk_lookup(nodes[k]), stale)))
+            got = dict(zip(stale, ex.map(lambda k: merged_risk(nodes[k], cfg), stale)))
         for num, data in got.items():
             fresh[num] = data
             cache[num] = {'ts': now, 'data': data}
@@ -299,6 +342,13 @@ def rank(cfg, nodes, state):
         if allowed and cc and cc not in allowed:
             state.setdefault('excluded_flag', {})[num] = {
                 'country': cc, 'isp': risk.get('isp') or risk.get('as') or ''}
+            continue
+        # ASN 黑名单：一票否决（这些段反复被标机房/代理，ip-api 单 IP 判定拦不住整段）
+        asn_text = ' '.join([str(risk.get('as') or ''), str(risk.get('isp') or ''),
+                             str(risk.get('org') or '')]).lower()
+        if any(b in asn_text for b in (str(x).lower() for x in (cfg.get('blacklist_asn') or []))):
+            state.setdefault('excluded_flag', {})[num] = {
+                'asn_blacklist': True, 'isp': risk.get('isp') or risk.get('as') or ''}
             continue
         tier = tier_of(cfg, num, risk)
         sp = scache.get(num, {})
