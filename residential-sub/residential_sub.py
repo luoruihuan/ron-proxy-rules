@@ -400,6 +400,11 @@ def rank(cfg, nodes, state):
         cc = (by_num.get(n, {}).get('risk') or {}).get('countryCode') or '??'
         by_country.setdefault(str(cc).upper(), []).append(n)
     state['selected_by_country'] = by_country
+    slot_countries = []
+    for n in selected:
+        r = by_num.get(n, {}).get('risk') or {}
+        slot_countries.append((r.get('countryCode') or '').upper())
+    state['slot_countries'] = slot_countries
     state['ranking'] = [
         {'num': s['num'], 'name': nodes[s['num']]['name'],
          'country': (s['risk'].get('countryCode') or '').upper(),
@@ -531,22 +536,39 @@ def maybe_alert(cfg, state, force=False):
 
 
 # ---------------------------------------------------------------- 输出
-def build_yaml(cfg, nodes, selected):
+def flag_emoji(cc):
+    """国家码转国旗 emoji（小火箭按名字里的 emoji 推断 flag）"""
+    cc = (cc or '').upper()
+    if len(cc) != 2 or not cc.isalpha():
+        return '🏳'
+    return chr(0x1F1E6 + ord(cc[0]) - 65) + chr(0x1F1E6 + ord(cc[1]) - 65)
+
+
+def build_yaml(cfg, nodes, selected, countries=None):
     """只输出 proxies 段：不带 groups / rules，避免影响客户端原有分流。
     槽位：第 1 位固定美国（US-住宅精选1，AI 服务主用区保底），第 2-5 位为全球槽
     （住宅精选2-5，按纯净度/可用度择优，不限国家）。名字与国家/IP 解耦，
-    上游轮换/补位后名字不变，客户端引用永不悬空。落地 IP 见 username 与 /status。"""
+    上游轮换/补位后名字不变，客户端引用永不悬空；落地 IP 见 username 与 /status。
+    每个全球槽额外输出一个镜像节点（名字带国旗 emoji，如「住宅精选2 🇯🇵」），
+    仅用于在小火箭列表里看到槽位真实国家，不被 conf 引用，国家变化时自动更名。"""
     lines = ['proxies:']
+    countries = countries or []
     for i, num in enumerate(selected, 1):
         n = nodes[num]
-        name = 'US-住宅精选1' if i == 1 else f'住宅精选{i}'
-        lines += [f"- name: {name}",
-                  f"  type: {n['type']}",
-                  f"  server: {n['server']}",
-                  f"  port: {n['port']}",
-                  f"  username: {n['username']}",
-                  f"  password: {n['password']}",
-                  f"  dialer-proxy: {cfg['chain_node']}"]
+        entries = []
+        if i == 1:
+            entries.append('US-住宅精选1')
+        else:
+            entries.append(f'住宅精选{i}')
+            entries.append(f'住宅精选{i} {flag_emoji(countries[i-1] if i-1 < len(countries) else "")}')
+        for name in entries:
+            lines += [f"- name: {name}",
+                      f"  type: {n['type']}",
+                      f"  server: {n['server']}",
+                      f"  port: {n['port']}",
+                      f"  username: {n['username']}",
+                      f"  password: {n['password']}",
+                      f"  dialer-proxy: {cfg['chain_node']}"]
     return '\n'.join(lines) + '\n'
 
 
@@ -600,7 +622,8 @@ class Handler(BaseHTTPRequestHandler):
             if not selected:
                 raise RuntimeError('没有可用落地节点（全部探测失败或全部被标记）')
 
-            yaml_text = build_yaml(self.cfg, nodes, selected)
+            yaml_text = build_yaml(self.cfg, nodes, selected,
+                                   self.state.get('slot_countries') or [])
             with open(LAST_GOOD, 'w', encoding='utf-8') as f:
                 f.write(yaml_text)
             self._send(200, 'text/yaml; charset=utf-8', yaml_text.encode())
